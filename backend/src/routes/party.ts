@@ -148,4 +148,29 @@ router.post('/party/:partyId/end', (req: Request, res: Response) => {
   res.json({ status: 'ENDED' });
 });
 
+// POST /party/:partyId/heartbeat - Active tracking
+router.post('/party/:partyId/heartbeat', (req: Request, res: Response) => {
+  const { partyId } = req.params;
+  const { userId } = req.body;
+
+  if (!userId) {
+    return res.status(400).json(createError('INVALID_REQUEST', 'userId is required'));
+  }
+
+  const party = store.getParty(partyId);
+  if (!party) {
+    return res.status(404).json(createError('PARTY_NOT_FOUND', 'Party not found'));
+  }
+
+  const member = store.getMember(partyId, userId);
+  if (!member) {
+    return res.status(404).json(createError('MEMBER_NOT_FOUND', 'User is not a member of this party'));
+  }
+
+  // Update activity timestamp
+  const updated = store.updateMemberActivity(partyId, userId);
+
+  res.json({ active: updated });
+});
+
 export default router;
