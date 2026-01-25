@@ -2,22 +2,40 @@ import { LoginCard } from '@/app/components/LoginCard';
 import { SignUpCard } from '@/app/components/SignUpCard';
 import { GuestView } from '@/app/pages/GuestView';
 import { HostView } from '@/app/pages/HostView';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useParty } from '@/lib/useParty';
 
 type View = 'login' | 'signup' | 'guest' | 'host';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('login');
+  const party = useParty();
+
+  // Auto-switch to host/guest view when party is created/joined
+  useEffect(() => {
+    if (party.partyState) {
+      const isHost = party.partyState.party.hostId === party.userId;
+      setCurrentView(isHost ? 'host' : 'guest');
+    }
+  }, [party.partyState, party.userId]);
 
   const handleLogin = (email: string, password: string, roomCode?: string) => {
     console.log('Login:', { email, password, roomCode });
-    // Simulate login - default to guest view
-    setCurrentView('guest');
+
+    // For demo: generate userId from email
+    const userId = `user_${email.split('@')[0]}`;
+
+    if (roomCode) {
+      // Join party with room code (would need to lookup partyId from roomCode in real app)
+      console.log('Joining party with code:', roomCode);
+      setCurrentView('guest');
+    } else {
+      setCurrentView('guest');
+    }
   };
 
   const handleSignUp = (name: string, email: string, password: string, roomCode?: string) => {
     console.log('Sign up:', { name, email, password, roomCode });
-    // Simulate signup - go to guest view
     setCurrentView('guest');
   };
 
@@ -33,6 +51,22 @@ export default function App() {
 
   const handleForgotPassword = () => {
     console.log('Forgot password');
+  };
+
+  // Demo: Create party (host)
+  const handleCreateParty = async () => {
+    const userId = `host_${Date.now()}`;
+    await party.createParty(userId, 'chill');
+  };
+
+  // Demo: Join party (guest)
+  const handleJoinParty = async () => {
+    // For demo, prompt for party ID
+    const partyId = prompt('Enter Party ID:');
+    if (partyId) {
+      const userId = `guest_${Date.now()}`;
+      await party.joinParty(partyId, userId);
+    }
   };
 
   return (
@@ -54,7 +88,7 @@ export default function App() {
       ></div>
 
       {/* View Switcher (for demo purposes) */}
-      <div className="fixed top-4 right-4 z-50 flex gap-2">
+      <div className="fixed top-4 right-4 z-50 flex gap-2 flex-wrap max-w-md">
         <button
           onClick={() => setCurrentView('login')}
           className={`px-3 py-1.5 rounded-lg text-xs transition-all duration-200 ${
@@ -76,30 +110,36 @@ export default function App() {
           Sign Up
         </button>
         <button
-          onClick={() => setCurrentView('guest')}
-          className={`px-3 py-1.5 rounded-lg text-xs transition-all duration-200 ${
-            currentView === 'guest'
-              ? 'bg-[#00ff41] text-black'
-              : 'bg-[#1a1a1a] text-[#9ca3af] border border-[#2a2a2a]'
-          }`}
+          onClick={handleCreateParty}
+          disabled={party.loading}
+          className="px-3 py-1.5 rounded-lg text-xs bg-[#00ff41] text-black hover:bg-[#00e639] transition-all duration-200 disabled:opacity-50"
         >
-          Guest View
+          {party.loading ? 'Creating...' : '+ Create Party (Host)'}
         </button>
         <button
-          onClick={() => setCurrentView('host')}
-          className={`px-3 py-1.5 rounded-lg text-xs transition-all duration-200 ${
-            currentView === 'host'
-              ? 'bg-[#00ff41] text-black'
-              : 'bg-[#1a1a1a] text-[#9ca3af] border border-[#2a2a2a]'
-          }`}
+          onClick={handleJoinParty}
+          disabled={party.loading}
+          className="px-3 py-1.5 rounded-lg text-xs bg-[#1a1a1a] text-[#00ff41] border border-[#00ff41]/30 hover:bg-[#00ff41]/10 transition-all duration-200 disabled:opacity-50"
         >
-          Host View
+          {party.loading ? 'Joining...' : 'Join Party (Guest)'}
         </button>
+        {party.partyId && (
+          <div className="px-3 py-1.5 rounded-lg text-xs bg-[#2a2a2a] text-white border border-[#3a3a3a]">
+            Party: {party.partyId.slice(0, 12)}... | Code: {party.joinCode || 'N/A'}
+          </div>
+        )}
       </div>
 
       {/* Render based on current view */}
-      {currentView === 'guest' && <GuestView />}
-      {currentView === 'host' && <HostView />}
+      {currentView === 'guest' && <GuestView partyState={party.partyState} onVote={party.vote} />}
+      {currentView === 'host' && (
+        <HostView
+          partyState={party.partyState}
+          joinCode={party.joinCode}
+          onStartParty={party.startParty}
+          onUpdateSettings={party.updateSettings}
+        />
+      )}
 
       {/* Login or Sign Up Card */}
       {(currentView === 'login' || currentView === 'signup') && (
