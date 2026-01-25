@@ -5,9 +5,9 @@
 import { Router, Request, Response } from 'express';
 import type { Server } from 'socket.io';
 import { store } from '../store.js';
-import { generateId, generateJoinCode, createError } from '../utils.js';
+import { generateId, generateJoinCode, createError, randomSample } from '../utils.js';
 import { CONFIG } from '../config.js';
-import type { Party, PartyMember, VoteType, VoteContext } from '../types.js';
+import type { Party, PartyMember, VoteType, VoteContext, Song, Suggestion } from '../types.js';
 
 let io: Server;
 
@@ -314,6 +314,144 @@ router.post('/party/:partyId/vote', (req: Request, res: Response) => {
     downvotes: counts.downvotes,
     status,
     context,
+  });
+});
+
+// POST /party/:partyId/suggest - Suggest a song
+router.post('/party/:partyId/suggest', (req: Request, res: Response) => {
+  const { partyId } = req.params;
+  const { userId, trackId } = req.body;
+
+  if (!userId || !trackId) {
+    return res.status(400).json(createError('INVALID_REQUEST', 'userId and trackId are required'));
+  }
+
+  const party = store.getParty(partyId);
+  if (!party) {
+    return res.status(404).json(createError('PARTY_NOT_FOUND', 'Party not found'));
+  }
+
+  if (!party.allowSuggestions) {
+    return res.status(403).json(createError('SUGGESTIONS_DISABLED', 'Suggestions are disabled for this party'));
+  }
+
+  if (party.status !== 'LIVE') {
+    return res.status(400).json(createError('PARTY_NOT_LIVE', 'Party must be live to suggest songs'));
+  }
+
+  // Update member activity
+  store.updateMemberActivity(partyId, userId);
+
+  // Get active members
+  const activeMembers = store.getActiveMembers(partyId);
+  const activeMembersCount = activeMembers.length;
+
+  // Calculate sample size: max(3, ceil(activeMembersCount * 0.05)), cap 15
+  let sampleSize = Math.max(CONFIG.SAMPLE_MIN, Math.ceil(activeMembersCount * CONFIG.SAMPLE_PERCENT));
+  sampleSize = Math.min(sampleSize, CONFIG.SAMPLE_CAP);
+
+  // Random sample of active members
+  const sampleMembers = randomSample(activeMembers, sampleSize);
+  const sampleUserIds = sampleMembers.map((m) => m.userId);
+
+  // Create mock song (in real app, fetch from Spotify API)
+  const song: Song = {
+    trackId,
+    title: 'Suggested Song',
+    artist: 'Unknown Artist',
+    albumArtUrl: '',
+    explicit: false,
+    source: 'GUEST_SUGGESTION',
+    status: 'TESTING',
+    upvotes: 0,
+    downvotes: 0,
+  };
+
+  // Store suggestion
+  const suggestion: Suggestion = {
+    trackId,
+    song,
+    sampleUserIds,
+    createdAt: Date.now(),
+  };
+
+  const partyData = store.getPartyData(partyId);
+  if (partyData) {
+    partyData.suggestions.set(trackId, suggestion);
+  }
+
+  // Emit to sampled users only
+  if (io) {
+    sampleUserIds.forEach((sampledUserId) => {
+      // Find socket(s) for this user in the party room
+      const roomName = `party:${partyId}`;
+      const room = io.sockets.adapter.rooms.get(roomName);
+      if (room) {
+        room.forEach((socketId) => {
+          const socket = io.sockets.sockets.get(socketId);
+          // In a real app, you'd track userId per socket
+          // For now, broadcast to all in room with filter info
+          socket?.emit('party:suggestionTesting', {
+            trackId,
+            status: 'TESTING',
+            expiresAt: Date.now() + CONFIG.SUGGEST_EXPIRE_AT_MS,
+            song,
+            sampleUserIds, // Frontend can check if current user is in sample
+          });
+        });
+      }
+    });
+  }
+
+  // Set timeout to expand sample at 2 minutes
+  setTimeout(() => {
+    const suggestion = store.getSuggestion(partyId, trackId);
+    if (!suggestion) return;
+    if (suggestion.song.status !== 'TESTING') return;
+    if (suggestion.expandedAt) return; // Already expanded
+
+    // Expand sample once
+    const activeMembers = store.getActiveMembers(partyId);
+    let expandedSize = sampleSize * 2;
+    expandedSize = Math.min(expandedSize, CONFIG.SAMPLE_CAP);
+    const expandedMembers = randomSample(activeMembers, expandedSize);
+    const expandedUserIds = expandedMembers.map((m) => m.userId);
+
+    suggestion.sampleUserIds = expandedUserIds;
+    suggestion.expandedAt = Date.now();
+
+    // Emit updated testing to new sampled users
+    if (io) {
+      io.to(`party:${partyId}`).emit('party:suggestionTesting', {
+        trackId,
+        status: 'TESTING',
+        expiresAt: suggestion.createdAt + CONFIG.SUGGEST_EXPIRE_AT_MS,
+        song: suggestion.song,
+        sampleUserIds: expandedUserIds,
+      });
+    }
+  }, CONFIG.SUGGEST_EXPAND_AT_MS);
+
+  // Set timeout to expire at 5 minutes
+  setTimeout(() => {
+    const suggestion = store.getSuggestion(partyId, trackId);
+    if (!suggestion) return;
+    if (suggestion.song.status !== 'TESTING') return;
+
+    // Expire suggestion
+    suggestion.song.status = 'EXPIRED';
+
+    if (io) {
+      io.to(`party:${partyId}`).emit('party:suggestionExpired', {
+        trackId,
+        status: 'EXPIRED',
+      });
+    }
+  }, CONFIG.SUGGEST_EXPIRE_AT_MS);
+
+  res.json({
+    suggestion: song,
+    sampleUserIds,
   });
 });
 
