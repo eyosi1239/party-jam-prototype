@@ -4,7 +4,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import { ENV } from './config.js';
 import { store } from './store.js';
-import partyRoutes from './routes/party.js';
+import partyRoutes, { setSocketIO } from './routes/party.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -14,6 +14,9 @@ const io = new Server(httpServer, {
     methods: ['GET', 'POST'],
   },
 });
+
+// Pass io instance to routes for broadcasting
+setSocketIO(io);
 
 // Middleware
 app.use(cors({ origin: ENV.FRONTEND_ORIGIN }));
