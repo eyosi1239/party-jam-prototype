@@ -135,6 +135,97 @@ export class PartyStore {
     if (!partyData) return null;
     return partyData.queue.find((song) => song.trackId === trackId) || null;
   }
+
+  // Vote tracking methods
+  setVote(partyId: string, userId: string, trackId: string, voteType: 'UP' | 'DOWN' | 'NONE', context: 'QUEUE' | 'TESTING'): boolean {
+    const partyData = this.parties.get(partyId);
+    if (!partyData) return false;
+
+    const voteKey = `${userId}:${trackId}`;
+
+    if (voteType === 'NONE') {
+      partyData.votes.delete(voteKey);
+    } else {
+      partyData.votes.set(voteKey, {
+        userId,
+        trackId,
+        vote: voteType,
+        context,
+        timestamp: Date.now(),
+      });
+    }
+
+    return true;
+  }
+
+  getVoteCounts(partyId: string, trackId: string): { upvotes: number; downvotes: number } {
+    const partyData = this.parties.get(partyId);
+    if (!partyData) return { upvotes: 0, downvotes: 0 };
+
+    let upvotes = 0;
+    let downvotes = 0;
+
+    for (const vote of partyData.votes.values()) {
+      if (vote.trackId === trackId) {
+        if (vote.vote === 'UP') upvotes++;
+        else if (vote.vote === 'DOWN') downvotes++;
+      }
+    }
+
+    return { upvotes, downvotes };
+  }
+
+  updateSongVotes(partyId: string, trackId: string): boolean {
+    const partyData = this.parties.get(partyId);
+    if (!partyData) return false;
+
+    const counts = this.getVoteCounts(partyId, trackId);
+
+    // Update queue song
+    const queueSong = partyData.queue.find((s) => s.trackId === trackId);
+    if (queueSong) {
+      queueSong.upvotes = counts.upvotes;
+      queueSong.downvotes = counts.downvotes;
+      return true;
+    }
+
+    // Update suggestion song
+    const suggestion = partyData.suggestions.get(trackId);
+    if (suggestion) {
+      suggestion.song.upvotes = counts.upvotes;
+      suggestion.song.downvotes = counts.downvotes;
+      return true;
+    }
+
+    return false;
+  }
+
+  getSuggestion(partyId: string, trackId: string) {
+    const partyData = this.parties.get(partyId);
+    if (!partyData) return null;
+    return partyData.suggestions.get(trackId) || null;
+  }
+
+  updateSongStatus(partyId: string, trackId: string, status: 'QUEUED' | 'TESTING' | 'PROMOTED' | 'REMOVED' | 'EXPIRED'): boolean {
+    const partyData = this.parties.get(partyId);
+    if (!partyData) return false;
+
+    // Update queue song
+    const queueSong = partyData.queue.find((s) => s.trackId === trackId);
+    if (queueSong) {
+      queueSong.status = status;
+      return true;
+    }
+
+    // Update suggestion song
+    const suggestion = partyData.suggestions.get(trackId);
+    if (suggestion) {
+      suggestion.song.status = status;
+      return true;
+    }
+
+    return false;
+  }
 }
 
 export const store = new PartyStore();
