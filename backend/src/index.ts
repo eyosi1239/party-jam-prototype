@@ -75,6 +75,43 @@ io.on('connection', (socket) => {
     console.log(`User ${userId} joined party ${partyId}`);
   });
 
+  // party:heartbeat - Active tracking
+  socket.on('party:heartbeat', ({ partyId, userId }) => {
+    if (!partyId || !userId) {
+      socket.emit('party:error', {
+        code: 'INVALID_REQUEST',
+        message: 'partyId and userId are required',
+      });
+      return;
+    }
+
+    const party = store.getParty(partyId);
+    if (!party) {
+      socket.emit('party:error', {
+        code: 'PARTY_NOT_FOUND',
+        message: 'Party not found',
+      });
+      return;
+    }
+
+    // Get count before update
+    const beforeCount = store.getActiveMembersCount(partyId);
+
+    // Update member activity
+    store.updateMemberActivity(partyId, userId);
+
+    // Get count after update
+    const afterCount = store.getActiveMembersCount(partyId);
+
+    // Only broadcast if count changed
+    if (beforeCount !== afterCount) {
+      const roomName = `party:${partyId}`;
+      io.to(roomName).emit('party:presence', {
+        activeMembersCount: afterCount,
+      });
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log(`Socket disconnected: ${socket.id}`);
   });
