@@ -455,4 +455,162 @@ router.post('/party/:partyId/suggest', (req: Request, res: Response) => {
   });
 });
 
+// POST /party/:partyId/settings/mood - Update mood
+router.post('/party/:partyId/settings/mood', (req: Request, res: Response) => {
+  const { partyId } = req.params;
+  const { hostId, mood } = req.body;
+
+  if (!hostId || !mood) {
+    return res.status(400).json(createError('INVALID_REQUEST', 'hostId and mood are required'));
+  }
+
+  const party = store.getParty(partyId);
+  if (!party) {
+    return res.status(404).json(createError('PARTY_NOT_FOUND', 'Party not found'));
+  }
+
+  if (party.hostId !== hostId) {
+    return res.status(403).json(createError('NOT_HOST', 'Only host can update mood'));
+  }
+
+  store.updateParty(partyId, { mood });
+
+  // Broadcast settings update
+  if (io) {
+    const updatedParty = store.getParty(partyId);
+    if (updatedParty) {
+      io.to(`party:${partyId}`).emit('party:settingsUpdated', {
+        mood: updatedParty.mood,
+        kidFriendly: updatedParty.kidFriendly,
+        allowSuggestions: updatedParty.allowSuggestions,
+      });
+    }
+  }
+
+  res.json({ mood });
+});
+
+// POST /party/:partyId/settings/kidFriendly - Toggle kid-friendly
+router.post('/party/:partyId/settings/kidFriendly', (req: Request, res: Response) => {
+  const { partyId } = req.params;
+  const { hostId, kidFriendly } = req.body;
+
+  if (!hostId || kidFriendly === undefined) {
+    return res.status(400).json(createError('INVALID_REQUEST', 'hostId and kidFriendly are required'));
+  }
+
+  const party = store.getParty(partyId);
+  if (!party) {
+    return res.status(404).json(createError('PARTY_NOT_FOUND', 'Party not found'));
+  }
+
+  if (party.hostId !== hostId) {
+    return res.status(403).json(createError('NOT_HOST', 'Only host can update kid-friendly setting'));
+  }
+
+  store.updateParty(partyId, { kidFriendly });
+
+  // Broadcast settings update
+  if (io) {
+    const updatedParty = store.getParty(partyId);
+    if (updatedParty) {
+      io.to(`party:${partyId}`).emit('party:settingsUpdated', {
+        mood: updatedParty.mood,
+        kidFriendly: updatedParty.kidFriendly,
+        allowSuggestions: updatedParty.allowSuggestions,
+      });
+    }
+  }
+
+  res.json({ kidFriendly });
+});
+
+// POST /party/:partyId/settings/allowSuggestions - Toggle guest suggestions
+router.post('/party/:partyId/settings/allowSuggestions', (req: Request, res: Response) => {
+  const { partyId } = req.params;
+  const { hostId, allowSuggestions } = req.body;
+
+  if (!hostId || allowSuggestions === undefined) {
+    return res.status(400).json(createError('INVALID_REQUEST', 'hostId and allowSuggestions are required'));
+  }
+
+  const party = store.getParty(partyId);
+  if (!party) {
+    return res.status(404).json(createError('PARTY_NOT_FOUND', 'Party not found'));
+  }
+
+  if (party.hostId !== hostId) {
+    return res.status(403).json(createError('NOT_HOST', 'Only host can update suggestions setting'));
+  }
+
+  store.updateParty(partyId, { allowSuggestions });
+
+  // Broadcast settings update
+  if (io) {
+    const updatedParty = store.getParty(partyId);
+    if (updatedParty) {
+      io.to(`party:${partyId}`).emit('party:settingsUpdated', {
+        mood: updatedParty.mood,
+        kidFriendly: updatedParty.kidFriendly,
+        allowSuggestions: updatedParty.allowSuggestions,
+      });
+    }
+  }
+
+  res.json({ allowSuggestions });
+});
+
+// POST /party/:partyId/nowPlaying - Update now playing
+router.post('/party/:partyId/nowPlaying', (req: Request, res: Response) => {
+  const { partyId } = req.params;
+  const { hostId, trackId, startedAt } = req.body;
+
+  if (!hostId || !trackId || !startedAt) {
+    return res.status(400).json(createError('INVALID_REQUEST', 'hostId, trackId, and startedAt are required'));
+  }
+
+  const party = store.getParty(partyId);
+  if (!party) {
+    return res.status(404).json(createError('PARTY_NOT_FOUND', 'Party not found'));
+  }
+
+  if (party.hostId !== hostId) {
+    return res.status(403).json(createError('NOT_HOST', 'Only host can update now playing'));
+  }
+
+  const partyData = store.getPartyData(partyId);
+  if (!partyData) {
+    return res.status(404).json(createError('PARTY_NOT_FOUND', 'Party not found'));
+  }
+
+  // Find song in queue
+  const song = partyData.queue.find((s) => s.trackId === trackId);
+  if (song) {
+    partyData.nowPlaying = song;
+  } else {
+    // If not in queue, create a basic song object (for MVP)
+    partyData.nowPlaying = {
+      trackId,
+      title: 'Now Playing',
+      artist: 'Unknown',
+      albumArtUrl: '',
+      explicit: false,
+      source: 'SPOTIFY_REC',
+      status: 'QUEUED',
+      upvotes: 0,
+      downvotes: 0,
+    };
+  }
+
+  // Broadcast now playing
+  if (io) {
+    io.to(`party:${partyId}`).emit('party:nowPlaying', {
+      trackId,
+      startedAt,
+    });
+  }
+
+  res.json({ ok: true });
+});
+
 export default router;
