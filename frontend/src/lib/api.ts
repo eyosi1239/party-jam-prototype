@@ -159,6 +159,18 @@ class ApiClient {
       body: JSON.stringify(data),
     });
   }
+
+  // Queue seeding
+  async seedQueue(
+    partyId: string,
+    hostId: string,
+    tracks: any[]
+  ): Promise<{ ok: boolean; addedCount: number; queue: any[] }> {
+    return this.request(`/party/${partyId}/seed`, {
+      method: 'POST',
+      body: JSON.stringify({ hostId, tracks }),
+    });
+  }
 }
 
 // Export singleton instance
