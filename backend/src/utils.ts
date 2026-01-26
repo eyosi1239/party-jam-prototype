@@ -7,8 +7,8 @@ export function generateId(prefix: string): string {
 }
 
 export function generateJoinCode(): string {
-  // 6-character uppercase alphanumeric code
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  // 6-character uppercase code, avoiding confusing chars (0/O, 1/I)
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
   for (let i = 0; i < 6; i++) {
     code += chars.charAt(Math.floor(Math.random() * chars.length));

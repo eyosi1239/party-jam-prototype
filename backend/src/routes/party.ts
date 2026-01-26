@@ -40,6 +40,7 @@ router.post('/party', (req: Request, res: Response) => {
   };
 
   store.createParty(party);
+  store.setJoinCode(joinCode, partyId);
 
   // Add host as first member
   const hostMember: PartyMember = {
@@ -55,6 +56,22 @@ router.post('/party', (req: Request, res: Response) => {
     joinCode,
     party,
   });
+});
+
+// GET /party/resolve - Resolve joinCode to partyId
+router.get('/party/resolve', (req: Request, res: Response) => {
+  const { joinCode } = req.query;
+
+  if (!joinCode || typeof joinCode !== 'string') {
+    return res.status(400).json(createError('INVALID_REQUEST', 'joinCode is required'));
+  }
+
+  const partyId = store.getPartyIdByJoinCode(joinCode.toUpperCase());
+  if (!partyId) {
+    return res.status(404).json(createError('JOIN_CODE_INVALID', 'Invalid join code. Please check the code and try again.'));
+  }
+
+  res.json({ partyId });
 });
 
 // POST /party/:partyId/join - Join party

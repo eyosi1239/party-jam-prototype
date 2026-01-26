@@ -71,6 +71,10 @@ class ApiClient {
     });
   }
 
+  async resolveJoinCode(joinCode: string): Promise<{ partyId: string }> {
+    return this.request(`/party/resolve?joinCode=${encodeURIComponent(joinCode)}`);
+  }
+
   async joinParty(partyId: string, data: JoinPartyRequest): Promise<JoinPartyResponse> {
     return this.request(`/party/${partyId}/join`, {
       method: 'POST',
