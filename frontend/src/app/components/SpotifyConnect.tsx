@@ -5,13 +5,16 @@
 import { useState, useEffect } from 'react';
 import { initiateSpotifyLogin, isLoggedIn, logout, getMe, type SpotifyUser } from '@/lib/spotify';
 
+const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
+const isSpotifyEnabled = !!SPOTIFY_CLIENT_ID && SPOTIFY_CLIENT_ID !== 'your_spotify_client_id_here';
+
 export function SpotifyConnect() {
   const [user, setUser] = useState<SpotifyUser | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // Check if user is already logged in and fetch profile
-    if (isLoggedIn()) {
+    if (isSpotifyEnabled && isLoggedIn()) {
       loadUserProfile();
     }
   }, []);
@@ -36,6 +39,15 @@ export function SpotifyConnect() {
     logout();
     setUser(null);
   };
+
+  // If Spotify integration is disabled, show a note
+  if (!isSpotifyEnabled) {
+    return (
+      <div className="px-3 py-1.5 rounded-lg text-xs bg-[#1a1a1a] text-[#9ca3af] border border-[#2a2a2a]">
+        Spotify integration paused
+      </div>
+    );
+  }
 
   if (user) {
     return (
