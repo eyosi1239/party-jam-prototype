@@ -5,3 +5,4 @@ frontend/dist
 backend/dist
 dist
 
+.claude/
