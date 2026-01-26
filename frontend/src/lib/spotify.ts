@@ -1,0 +1,269 @@
+/**
+ * Spotify Web API client with OAuth 2.0 PKCE flow
+ */
+
+const SPOTIFY_AUTH_URL = 'https://accounts.spotify.com/authorize';
+const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token';
+const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
+
+const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
+const REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI;
+
+// Token storage keys
+const ACCESS_TOKEN_KEY = 'spotify_access_token';
+const REFRESH_TOKEN_KEY = 'spotify_refresh_token';
+const TOKEN_EXPIRY_KEY = 'spotify_token_expiry';
+const CODE_VERIFIER_KEY = 'spotify_code_verifier';
+
+export interface SpotifyUser {
+  id: string;
+  display_name: string;
+  email: string;
+  images: Array<{ url: string }>;
+}
+
+export interface SpotifyTrack {
+  id: string;
+  name: string;
+  artists: Array<{ name: string }>;
+  album: {
+    name: string;
+    images: Array<{ url: string }>;
+  };
+  explicit: boolean;
+  preview_url: string | null;
+  uri: string;
+}
+
+export interface SpotifySearchResult {
+  tracks: {
+    items: SpotifyTrack[];
+  };
+}
+
+/**
+ * Generate a random code verifier for PKCE
+ */
+function generateCodeVerifier(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return base64UrlEncode(array);
+}
+
+/**
+ * Generate code challenge from verifier using SHA-256
+ */
+async function generateCodeChallenge(verifier: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return base64UrlEncode(new Uint8Array(hash));
+}
+
+/**
+ * Base64 URL encode (without padding)
+ */
+function base64UrlEncode(array: Uint8Array): string {
+  return btoa(String.fromCharCode(...array))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+/**
+ * Redirect user to Spotify authorization page
+ */
+export async function initiateSpotifyLogin(): Promise<void> {
+  const codeVerifier = generateCodeVerifier();
+  const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+  // Store code verifier for later use
+  localStorage.setItem(CODE_VERIFIER_KEY, codeVerifier);
+
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    response_type: 'code',
+    redirect_uri: REDIRECT_URI,
+    code_challenge_method: 'S256',
+    code_challenge: codeChallenge,
+    scope: 'user-read-email user-read-private',
+  });
+
+  window.location.href = `${SPOTIFY_AUTH_URL}?${params.toString()}`;
+}
+
+/**
+ * Handle OAuth callback and exchange code for tokens
+ */
+export async function handleSpotifyCallback(code: string): Promise<void> {
+  const codeVerifier = localStorage.getItem(CODE_VERIFIER_KEY);
+  if (!codeVerifier) {
+    throw new Error('Code verifier not found. Please restart the login process.');
+  }
+
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: REDIRECT_URI,
+    code_verifier: codeVerifier,
+  });
+
+  const response = await fetch(SPOTIFY_TOKEN_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(`Spotify token exchange failed: ${error.error_description || error.error}`);
+  }
+
+  const data = await response.json();
+
+  // Store tokens
+  localStorage.setItem(ACCESS_TOKEN_KEY, data.access_token);
+  if (data.refresh_token) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token);
+  }
+
+  // Store expiry time (current time + expires_in seconds)
+  const expiryTime = Date.now() + data.expires_in * 1000;
+  localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString());
+
+  // Clean up code verifier
+  localStorage.removeItem(CODE_VERIFIER_KEY);
+}
+
+/**
+ * Refresh access token using refresh token
+ */
+async function refreshAccessToken(): Promise<void> {
+  const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+  if (!refreshToken) {
+    throw new Error('No refresh token available. Please log in again.');
+  }
+
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+  });
+
+  const response = await fetch(SPOTIFY_TOKEN_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(`Token refresh failed: ${error.error_description || error.error}`);
+  }
+
+  const data = await response.json();
+
+  // Update tokens
+  localStorage.setItem(ACCESS_TOKEN_KEY, data.access_token);
+  if (data.refresh_token) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token);
+  }
+
+  const expiryTime = Date.now() + data.expires_in * 1000;
+  localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString());
+}
+
+/**
+ * Get valid access token (refresh if needed)
+ */
+async function getAccessToken(): Promise<string> {
+  const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+  const expiryTime = localStorage.getItem(TOKEN_EXPIRY_KEY);
+
+  if (!accessToken) {
+    throw new Error('No access token. Please log in with Spotify.');
+  }
+
+  // Check if token is expired or will expire in next 5 minutes
+  const isExpired = expiryTime && Date.now() >= parseInt(expiryTime) - 5 * 60 * 1000;
+
+  if (isExpired) {
+    await refreshAccessToken();
+    return localStorage.getItem(ACCESS_TOKEN_KEY)!;
+  }
+
+  return accessToken;
+}
+
+/**
+ * Make authenticated request to Spotify API
+ */
+async function spotifyRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const token = await getAccessToken();
+
+  const response = await fetch(`${SPOTIFY_API_BASE}${endpoint}`, {
+    ...options,
+    headers: {
+      ...options.headers,
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(`Spotify API error: ${error.error?.message || response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Get current user's profile
+ */
+export async function getMe(): Promise<SpotifyUser> {
+  return spotifyRequest<SpotifyUser>('/me');
+}
+
+/**
+ * Search for tracks
+ */
+export async function searchTracks(query: string, limit = 20): Promise<SpotifyTrack[]> {
+  const params = new URLSearchParams({
+    q: query,
+    type: 'track',
+    limit: limit.toString(),
+  });
+
+  const result = await spotifyRequest<SpotifySearchResult>(`/search?${params.toString()}`);
+  return result.tracks.items;
+}
+
+/**
+ * Get a single track by ID
+ */
+export async function getTrack(trackId: string): Promise<SpotifyTrack> {
+  return spotifyRequest<SpotifyTrack>(`/tracks/${trackId}`);
+}
+
+/**
+ * Check if user is logged in
+ */
+export function isLoggedIn(): boolean {
+  const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+  return !!accessToken;
+}
+
+/**
+ * Log out (clear all tokens)
+ */
+export function logout(): void {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(TOKEN_EXPIRY_KEY);
+  localStorage.removeItem(CODE_VERIFIER_KEY);
+}

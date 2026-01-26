@@ -2,6 +2,8 @@ import { LoginCard } from '@/app/components/LoginCard';
 import { SignUpCard } from '@/app/components/SignUpCard';
 import { GuestView } from '@/app/pages/GuestView';
 import { HostView } from '@/app/pages/HostView';
+import { SpotifyCallback } from '@/app/pages/SpotifyCallback';
+import { SpotifyConnect } from '@/app/components/SpotifyConnect';
 import { useState, useEffect } from 'react';
 import { useParty } from '@/lib/useParty';
 
@@ -10,6 +12,11 @@ type View = 'login' | 'signup' | 'guest' | 'host';
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('login');
   const party = useParty();
+
+  // Handle Spotify OAuth callback
+  if (window.location.pathname === '/callback') {
+    return <SpotifyCallback />;
+  }
 
   // Auto-switch to host/guest view when party is created/joined
   useEffect(() => {
@@ -89,6 +96,7 @@ export default function App() {
 
       {/* View Switcher (for demo purposes) */}
       <div className="fixed top-4 right-4 z-50 flex gap-2 flex-wrap max-w-md">
+        <SpotifyConnect />
         <button
           onClick={() => setCurrentView('login')}
           className={`px-3 py-1.5 rounded-lg text-xs transition-all duration-200 ${
