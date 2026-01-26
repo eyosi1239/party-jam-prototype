@@ -6,6 +6,7 @@ import { SpotifyCallback } from '@/app/pages/SpotifyCallback';
 import { SpotifyConnect } from '@/app/components/SpotifyConnect';
 import { useState, useEffect } from 'react';
 import { useParty } from '@/lib/useParty';
+import { api } from '@/lib/api';
 
 type View = 'login' | 'signup' | 'guest' | 'host';
 
@@ -68,11 +69,18 @@ export default function App() {
 
   // Demo: Join party (guest)
   const handleJoinParty = async () => {
-    // For demo, prompt for party ID
-    const partyId = prompt('Enter Party ID:');
-    if (partyId) {
-      const userId = `guest_${Date.now()}`;
-      await party.joinParty(partyId, userId);
+    // Prompt for join code
+    const joinCode = prompt('Enter Join Code:');
+    if (joinCode) {
+      try {
+        // Resolve join code to party ID
+        const { partyId } = await api.resolveJoinCode(joinCode.toUpperCase());
+        const userId = `guest_${Date.now()}`;
+        await party.joinParty(partyId, userId);
+      } catch (error) {
+        alert('Invalid join code. Please check the code and try again.');
+        console.error('Join error:', error);
+      }
     }
   };
 

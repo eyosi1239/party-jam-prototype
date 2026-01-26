@@ -161,6 +161,34 @@ Response:
 
 ## Join + Presence
 
+### Resolve join code
+
+Converts a 6-character join code to a partyId. Use this before joining a party.
+
+#### GET /party/resolve?joinCode=XXXXXX
+
+Query params:
+- `joinCode`: 6-character uppercase code (letters and numbers, excludes 0/O/1/I)
+
+Response:
+
+```json
+{ "partyId": "string" }
+```
+
+Error (404):
+
+```json
+{
+  "error": {
+    "code": "JOIN_CODE_INVALID",
+    "message": "Invalid join code. Please check the code and try again."
+  }
+}
+```
+
+---
+
 ### Join party
 
 #### POST /party/:partyId/join

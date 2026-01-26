@@ -7,6 +7,7 @@ import { CONFIG } from './config.js';
 
 export class PartyStore {
   private parties = new Map<string, PartyData>();
+  private joinCodes = new Map<string, string>(); // joinCode -> partyId
 
   createParty(party: Party): void {
     const partyData: PartyData = {
@@ -18,6 +19,20 @@ export class PartyStore {
       suggestions: new Map(),
     };
     this.parties.set(party.partyId, partyData);
+  }
+
+  setJoinCode(joinCode: string, partyId: string): void {
+    this.joinCodes.set(joinCode, partyId);
+  }
+
+  getPartyByJoinCode(joinCode: string): Party | null {
+    const partyId = this.joinCodes.get(joinCode);
+    if (!partyId) return null;
+    return this.getParty(partyId);
+  }
+
+  getPartyIdByJoinCode(joinCode: string): string | null {
+    return this.joinCodes.get(joinCode) || null;
   }
 
   getParty(partyId: string): Party | null {
