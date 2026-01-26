@@ -5,6 +5,8 @@ import { Modal } from '@/app/components/Modal';
 import { Lock, RefreshCw, Users, Activity } from 'lucide-react';
 import { useState } from 'react';
 import type { PartyState } from '@/lib/types';
+import { getMusicProvider } from '@/lib/music';
+import { api } from '@/lib/api';
 
 interface HostViewProps {
   partyState: PartyState | null;
@@ -69,6 +71,7 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings 
   const [showNewCodeModal, setShowNewCodeModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [selectedSongToRemove, setSelectedSongToRemove] = useState<string | null>(null);
+  const [isSeedingQueue, setIsSeedingQueue] = useState(false);
 
   // Use real party state or show loading
   if (!partyState) {
@@ -92,6 +95,23 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings 
   const handleRemoveSong = () => {
     setShowRemoveModal(false);
     console.log('Remove song:', selectedSongToRemove);
+  };
+
+  const handleSeedQueue = async () => {
+    if (!partyState) return;
+
+    setIsSeedingQueue(true);
+    try {
+      const musicProvider = getMusicProvider();
+      const tracks = await musicProvider.getRecommendations(party.mood, 10);
+
+      await api.seedQueue(party.partyId, party.hostId, tracks);
+      console.log('Queue seeded with 10 tracks');
+    } catch (error) {
+      console.error('Failed to seed queue:', error);
+    } finally {
+      setIsSeedingQueue(false);
+    }
   };
 
   return (
@@ -149,7 +169,18 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings 
             <div className="bg-gradient-to-b from-[#0a0a0a] to-[#050505] border border-[#1a1a1a] rounded-3xl p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl text-white font-medium">Queue</h2>
-                <span className="text-[#9ca3af]">{queue.length} songs</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-[#9ca3af]">{queue.length} songs</span>
+                  {party.status === 'LIVE' && queue.length === 0 && (
+                    <button
+                      onClick={handleSeedQueue}
+                      disabled={isSeedingQueue}
+                      className="px-4 py-2 bg-[#00ff41] text-black rounded-xl font-medium hover:bg-[#00e639] transition-all duration-200 disabled:opacity-50 text-sm"
+                    >
+                      {isSeedingQueue ? 'Seeding...' : 'Seed Queue'}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-3">

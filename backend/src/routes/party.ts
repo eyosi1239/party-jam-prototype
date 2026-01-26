@@ -137,6 +137,73 @@ router.post('/party/:partyId/start', (req: Request, res: Response) => {
   res.json({ status: 'LIVE' });
 });
 
+// POST /party/:partyId/seed - Seed queue with tracks (host only)
+router.post('/party/:partyId/seed', (req: Request, res: Response) => {
+  const { partyId } = req.params;
+  const { hostId, tracks } = req.body;
+
+  if (!hostId) {
+    return res.status(400).json(createError('INVALID_REQUEST', 'hostId is required'));
+  }
+
+  if (!tracks || !Array.isArray(tracks)) {
+    return res.status(400).json(createError('INVALID_REQUEST', 'tracks must be an array'));
+  }
+
+  const party = store.getParty(partyId);
+  if (!party) {
+    return res.status(404).json(createError('PARTY_NOT_FOUND', 'Party not found'));
+  }
+
+  if (party.hostId !== hostId) {
+    return res.status(403).json(createError('NOT_HOST', 'Only host can seed queue'));
+  }
+
+  // Add each track to queue
+  const addedTracks: Song[] = [];
+  for (const track of tracks) {
+    // Filter out explicit tracks if kid-friendly mode is enabled
+    if (party.kidFriendly && track.explicit) {
+      continue;
+    }
+
+    const song: Song = {
+      trackId: track.id,
+      title: track.name,
+      artist: track.artists.map((a: any) => a.name).join(', '),
+      albumArtUrl: track.album.images[0]?.url || '',
+      explicit: track.explicit,
+      source: 'SPOTIFY_REC',
+      status: 'QUEUED',
+      upvotes: 0,
+      downvotes: 0,
+    };
+
+    store.addToQueue(partyId, song);
+    addedTracks.push(song);
+  }
+
+  // Broadcast queue updated
+  if (io) {
+    const state = store.getState(partyId);
+    if (state) {
+      io.to(`party:${partyId}`).emit('party:queueUpdated', {
+        queue: state.queue.map((s) => ({
+          trackId: s.trackId,
+          source: s.source,
+          status: s.status,
+        })),
+      });
+    }
+  }
+
+  res.json({
+    ok: true,
+    addedCount: addedTracks.length,
+    queue: addedTracks,
+  });
+});
+
 // POST /party/:partyId/end - End party
 router.post('/party/:partyId/end', (req: Request, res: Response) => {
   const { partyId } = req.params;
