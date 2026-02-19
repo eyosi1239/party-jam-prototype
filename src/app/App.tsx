@@ -2,22 +2,37 @@ import { LoginCard } from '@/app/components/LoginCard';
 import { SignUpCard } from '@/app/components/SignUpCard';
 import { GuestView } from '@/app/pages/GuestView';
 import { HostView } from '@/app/pages/HostView';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 
 type View = 'login' | 'signup' | 'guest' | 'host';
 
-export default function App() {
+function AppContent() {
+  const { user, loading } = useAuth();
   const [currentView, setCurrentView] = useState<View>('login');
+
+  // Redirect to guest view if user is logged in
+  if (user && (currentView === 'login' || currentView === 'signup')) {
+    return <GuestView />;
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-[#000000] via-[#0a0a0a] to-[#050505]">
+        <div className="text-[#00ff41]">Loading...</div>
+      </div>
+    );
+  }
 
   const handleLogin = (email: string, password: string, roomCode?: string) => {
     console.log('Login:', { email, password, roomCode });
-    // Simulate login - default to guest view
+    // Firebase login is handled by LoginCard
     setCurrentView('guest');
   };
 
   const handleSignUp = (name: string, email: string, password: string, roomCode?: string) => {
     console.log('Sign up:', { name, email, password, roomCode });
-    // Simulate signup - go to guest view
+    // Firebase signup is handled by SignUpCard
     setCurrentView('guest');
   };
 
@@ -33,6 +48,10 @@ export default function App() {
 
   const handleForgotPassword = () => {
     console.log('Forgot password');
+  };
+
+  const handleLogout = () => {
+    setCurrentView('login');
   };
 
   return (
@@ -121,5 +140,13 @@ export default function App() {
         </>
       )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

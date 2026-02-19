@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { FirebaseError } from 'firebase/app';
 
 interface LoginCardProps {
   onLogin?: (email: string, password: string, roomCode?: string) => void;
@@ -13,11 +15,14 @@ export function LoginCard({
   onForgotPassword, 
   onSignUp 
 }: LoginCardProps) {
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const validateEmail = (email: string) => {
@@ -33,10 +38,11 @@ export function LoginCard({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     let hasError = false;
+    setAuthError('');
 
     if (!validateEmail(email)) {
       setEmailError('Please enter a valid email address');
@@ -48,13 +54,29 @@ export function LoginCard({
       hasError = true;
     }
 
-    if (!hasError) {
-      // Simulate wrong password error for demo
-      if (password === 'wrongpassword') {
-        setPasswordError('Incorrect password. Please try again.');
+    if (hasError) return;
+
+    setIsLoading(true);
+    try {
+      await login(email, password);
+      onLogin?.(email, password, roomCode);
+    } catch (error) {
+      const firebaseError = error as FirebaseError;
+      const errorCode = firebaseError.code;
+      
+      if (errorCode === 'auth/invalid-email') {
+        setEmailError('Invalid email address');
+      } else if (errorCode === 'auth/user-not-found') {
+        setAuthError('No account found with this email');
+      } else if (errorCode === 'auth/wrong-password') {
+        setAuthError('Incorrect password');
+      } else if (errorCode === 'auth/invalid-credential') {
+        setAuthError('Invalid email or password');
       } else {
-        onLogin?.(email, password, roomCode || undefined);
+        setAuthError('Failed to login. Please try again.');
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -101,6 +123,13 @@ export function LoginCard({
             <h1 className="text-2xl text-white mb-2">Welcome back</h1>
             <p className="text-[#9ca3af]">Join the room and control the vibe</p>
           </div>
+
+          {/* Auth Error Message */}
+          {authError && (
+            <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">
+              {authError}
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -214,9 +243,10 @@ export function LoginCard({
             {/* Login Button */}
             <button
               type="submit"
-              className="w-full bg-[#00ff41] hover:bg-[#00e639] active:bg-[#00cc34] text-black py-3.5 rounded-xl transition-all duration-200 shadow-lg shadow-[#00ff41]/30 hover:shadow-[#00ff41]/50 hover:shadow-xl font-medium"
+              disabled={isLoading}
+              className="w-full bg-[#00ff41] hover:bg-[#00e639] active:bg-[#00cc34] disabled:bg-[#00661a] disabled:cursor-not-allowed text-black py-3.5 rounded-xl transition-all duration-200 shadow-lg shadow-[#00ff41]/30 hover:shadow-[#00ff41]/50 hover:shadow-xl font-medium"
             >
-              Log in
+              {isLoading ? 'Logging in...' : 'Log in'}
             </button>
 
             {/* Divider */}

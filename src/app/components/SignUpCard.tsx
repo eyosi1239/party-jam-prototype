@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { FirebaseError } from 'firebase/app';
 
 interface SignUpCardProps {
   onSignUp?: (name: string, email: string, password: string, roomCode?: string) => void;
@@ -11,6 +13,7 @@ export function SignUpCard({
   onGoogleSignUp, 
   onLogin 
 }: SignUpCardProps) {
+  const { signUp } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,6 +23,8 @@ export function SignUpCard({
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const validateEmail = (email: string) => {
@@ -55,10 +60,11 @@ export function SignUpCard({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     let hasError = false;
+    setAuthError('');
 
     if (!name.trim()) {
       setNameError('Name is required');
@@ -80,8 +86,27 @@ export function SignUpCard({
       hasError = true;
     }
 
-    if (!hasError) {
+    if (hasError) return;
+
+    setIsLoading(true);
+    try {
+      await signUp(email, password);
       onSignUp?.(name, email, password, roomCode || undefined);
+    } catch (error) {
+      const firebaseError = error as FirebaseError;
+      const errorCode = firebaseError.code;
+      
+      if (errorCode === 'auth/email-already-in-use') {
+        setAuthError('An account with this email already exists');
+      } else if (errorCode === 'auth/invalid-email') {
+        setEmailError('Invalid email address');
+      } else if (errorCode === 'auth/weak-password') {
+        setAuthError('Password is too weak. Please use a stronger password.');
+      } else {
+        setAuthError('Failed to create account. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -128,6 +153,13 @@ export function SignUpCard({
             <h1 className="text-2xl text-white mb-2">Create your account</h1>
             <p className="text-[#9ca3af]">Start your party journey</p>
           </div>
+
+          {/* Auth Error Message */}
+          {authError && (
+            <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">
+              {authError}
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -314,9 +346,10 @@ export function SignUpCard({
             {/* Sign Up Button */}
             <button
               type="submit"
-              className="w-full bg-[#00ff41] hover:bg-[#00e639] active:bg-[#00cc34] text-black py-3.5 rounded-xl transition-all duration-200 shadow-lg shadow-[#00ff41]/30 hover:shadow-[#00ff41]/50 hover:shadow-xl font-medium"
+              disabled={isLoading}
+              className="w-full bg-[#00ff41] hover:bg-[#00e639] active:bg-[#00cc34] disabled:bg-[#00661a] disabled:cursor-not-allowed text-black py-3.5 rounded-xl transition-all duration-200 shadow-lg shadow-[#00ff41]/30 hover:shadow-[#00ff41]/50 hover:shadow-xl font-medium"
             >
-              Create account
+              {isLoading ? 'Creating account...' : 'Create account'}
             </button>
 
             {/* Divider */}
