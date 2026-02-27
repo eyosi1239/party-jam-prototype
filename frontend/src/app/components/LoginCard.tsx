@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { FirebaseError } from 'firebase/app';
 
 interface LoginCardProps {
   onLogin?: (email: string, password: string, roomCode?: string) => void;
   onGoogleLogin?: () => void;
+  onSpotifyLogin?: () => void;
   onForgotPassword?: () => void;
   onSignUp?: () => void;
 }
@@ -10,14 +13,18 @@ interface LoginCardProps {
 export function LoginCard({ 
   onLogin, 
   onGoogleLogin, 
+  onSpotifyLogin, 
   onForgotPassword, 
   onSignUp 
 }: LoginCardProps) {
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const validateEmail = (email: string) => {
@@ -33,10 +40,11 @@ export function LoginCard({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     let hasError = false;
+    setAuthError('');
 
     if (!validateEmail(email)) {
       setEmailError('Please enter a valid email address');
@@ -48,13 +56,29 @@ export function LoginCard({
       hasError = true;
     }
 
-    if (!hasError) {
-      // Simulate wrong password error for demo
-      if (password === 'wrongpassword') {
-        setPasswordError('Incorrect password. Please try again.');
+    if (hasError) return;
+
+    setIsLoading(true);
+    try {
+      await login(email, password);
+      onLogin?.(email, password, roomCode);
+    } catch (error) {
+      const firebaseError = error as FirebaseError;
+      const errorCode = firebaseError.code;
+      
+      if (errorCode === 'auth/invalid-email') {
+        setEmailError('Invalid email address');
+      } else if (errorCode === 'auth/user-not-found') {
+        setAuthError('No account found with this email');
+      } else if (errorCode === 'auth/wrong-password') {
+        setAuthError('Incorrect password');
+      } else if (errorCode === 'auth/invalid-credential') {
+        setAuthError('Invalid email or password');
       } else {
-        onLogin?.(email, password, roomCode || undefined);
+        setAuthError('Failed to login. Please try again.');
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -101,6 +125,13 @@ export function LoginCard({
             <h1 className="text-2xl text-white mb-2">Welcome back</h1>
             <p className="text-[#9ca3af]">Join the room and control the vibe</p>
           </div>
+
+          {/* Auth Error Message */}
+          {authError && (
+            <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">
+              {authError}
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -214,9 +245,10 @@ export function LoginCard({
             {/* Login Button */}
             <button
               type="submit"
-              className="w-full bg-[#00ff41] hover:bg-[#00e639] active:bg-[#00cc34] text-black py-3.5 rounded-xl transition-all duration-200 shadow-lg shadow-[#00ff41]/30 hover:shadow-[#00ff41]/50 hover:shadow-xl font-medium"
+              disabled={isLoading}
+              className="w-full bg-[#00ff41] hover:bg-[#00e639] active:bg-[#00cc34] disabled:bg-[#00661a] disabled:cursor-not-allowed text-black py-3.5 rounded-xl transition-all duration-200 shadow-lg shadow-[#00ff41]/30 hover:shadow-[#00ff41]/50 hover:shadow-xl font-medium"
             >
-              Log in
+              {isLoading ? 'Logging in...' : 'Log in'}
             </button>
 
             {/* Divider */}
@@ -228,6 +260,20 @@ export function LoginCard({
                 <span className="px-4 bg-[#0a0a0a] text-[#6b7280] text-sm">or</span>
               </div>
             </div>
+
+            {/* Login with Spotify */}
+            {onSpotifyLogin && (
+              <button
+                type="button"
+                onClick={onSpotifyLogin}
+                className="w-full bg-[#1DB954] hover:bg-[#1ed760] active:bg-[#1aa34a] py-3.5 rounded-xl transition-all duration-200 font-medium flex items-center justify-center gap-3 text-white border-2 border-[#1DB954]"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                </svg>
+                Continue with Spotify
+              </button>
+            )}
 
             {/* Google Button */}
             <button

@@ -1,16 +1,21 @@
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { FirebaseError } from 'firebase/app';
 
 interface SignUpCardProps {
   onSignUp?: (name: string, email: string, password: string, roomCode?: string) => void;
   onGoogleSignUp?: () => void;
+  onSpotifySignUp?: () => void;
   onLogin?: () => void;
 }
 
 export function SignUpCard({ 
   onSignUp, 
   onGoogleSignUp, 
+  onSpotifySignUp, 
   onLogin 
 }: SignUpCardProps) {
+  const { signUp } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,6 +25,8 @@ export function SignUpCard({
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const validateEmail = (email: string) => {
@@ -55,10 +62,11 @@ export function SignUpCard({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     let hasError = false;
+    setAuthError('');
 
     if (!name.trim()) {
       setNameError('Name is required');
@@ -80,8 +88,27 @@ export function SignUpCard({
       hasError = true;
     }
 
-    if (!hasError) {
+    if (hasError) return;
+
+    setIsLoading(true);
+    try {
+      await signUp(email, password);
       onSignUp?.(name, email, password, roomCode || undefined);
+    } catch (error) {
+      const firebaseError = error as FirebaseError;
+      const errorCode = firebaseError.code;
+      
+      if (errorCode === 'auth/email-already-in-use') {
+        setAuthError('An account with this email already exists');
+      } else if (errorCode === 'auth/invalid-email') {
+        setEmailError('Invalid email address');
+      } else if (errorCode === 'auth/weak-password') {
+        setAuthError('Password is too weak. Please use a stronger password.');
+      } else {
+        setAuthError('Failed to create account. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -128,6 +155,13 @@ export function SignUpCard({
             <h1 className="text-2xl text-white mb-2">Create your account</h1>
             <p className="text-[#9ca3af]">Start your party journey</p>
           </div>
+
+          {/* Auth Error Message */}
+          {authError && (
+            <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">
+              {authError}
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -314,9 +348,10 @@ export function SignUpCard({
             {/* Sign Up Button */}
             <button
               type="submit"
-              className="w-full bg-[#00ff41] hover:bg-[#00e639] active:bg-[#00cc34] text-black py-3.5 rounded-xl transition-all duration-200 shadow-lg shadow-[#00ff41]/30 hover:shadow-[#00ff41]/50 hover:shadow-xl font-medium"
+              disabled={isLoading}
+              className="w-full bg-[#00ff41] hover:bg-[#00e639] active:bg-[#00cc34] disabled:bg-[#00661a] disabled:cursor-not-allowed text-black py-3.5 rounded-xl transition-all duration-200 shadow-lg shadow-[#00ff41]/30 hover:shadow-[#00ff41]/50 hover:shadow-xl font-medium"
             >
-              Create account
+              {isLoading ? 'Creating account...' : 'Create account'}
             </button>
 
             {/* Divider */}
@@ -328,6 +363,20 @@ export function SignUpCard({
                 <span className="px-4 bg-[#0a0a0a] text-[#6b7280] text-sm">or</span>
               </div>
             </div>
+
+            {/* Sign up with Spotify */}
+            {onSpotifySignUp && (
+              <button
+                type="button"
+                onClick={onSpotifySignUp}
+                className="w-full bg-[#1DB954] hover:bg-[#1ed760] active:bg-[#1aa34a] py-3.5 rounded-xl transition-all duration-200 font-medium flex items-center justify-center gap-3 text-white border-2 border-[#1DB954]"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                </svg>
+                Continue with Spotify
+              </button>
+            )}
 
             {/* Google Button */}
             <button

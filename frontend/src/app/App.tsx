@@ -2,6 +2,8 @@ import { LoginCard } from '@/app/components/LoginCard';
 import { SignUpCard } from '@/app/components/SignUpCard';
 import { GuestView } from '@/app/pages/GuestView';
 import { HostView } from '@/app/pages/HostView';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { SpotifyProvider, useSpotify } from '@/contexts/SpotifyContext';
 import { SpotifyCallback } from '@/app/pages/SpotifyCallback';
 import { SpotifyConnect } from '@/app/components/SpotifyConnect';
 import { useState, useEffect } from 'react';
@@ -10,7 +12,9 @@ import { api } from '@/lib/api';
 
 type View = 'login' | 'signup' | 'guest' | 'host';
 
-export default function App() {
+function AppContent() {
+  const { user, loading } = useAuth();
+  const spotify = useSpotify();
   const [currentView, setCurrentView] = useState<View>('login');
   const party = useParty();
 
@@ -27,23 +31,34 @@ export default function App() {
     }
   }, [party.partyState, party.userId]);
 
+  // Logged in = Firebase user OR Spotify user
+  const isLoggedIn = !!user || !!spotify.user;
+
+  // Redirect to guest view if user is logged in (Firebase or Spotify)
+  if (isLoggedIn && (currentView === 'login' || currentView === 'signup')) {
+    return <GuestView partyState={party.partyState} onVote={party.vote} />;
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-[#000000] via-[#0a0a0a] to-[#050505]">
+        <div className="text-[#00ff41]">Loading...</div>
+      </div>
+    );
+  }
+
   const handleLogin = (email: string, password: string, roomCode?: string) => {
     console.log('Login:', { email, password, roomCode });
-
-    // For demo: generate userId from email
-    const userId = `user_${email.split('@')[0]}`;
-
+    // Firebase login is handled by LoginCard
     if (roomCode) {
-      // Join party with room code (would need to lookup partyId from roomCode in real app)
       console.log('Joining party with code:', roomCode);
-      setCurrentView('guest');
-    } else {
-      setCurrentView('guest');
     }
+    setCurrentView('guest');
   };
 
   const handleSignUp = (name: string, email: string, password: string, roomCode?: string) => {
     console.log('Sign up:', { name, email, password, roomCode });
+    // Firebase signup is handled by SignUpCard
     setCurrentView('guest');
   };
 
@@ -61,21 +76,23 @@ export default function App() {
     console.log('Forgot password');
   };
 
-  // Demo: Create party (host)
+  const handleLogout = () => {
+    setCurrentView('login');
+  };
+
+  // Create party (host)
   const handleCreateParty = async () => {
-    const userId = `host_${Date.now()}`;
+    const userId = user?.uid ?? `host_${Date.now()}`;
     await party.createParty(userId, 'chill');
   };
 
-  // Demo: Join party (guest)
+  // Join party (guest)
   const handleJoinParty = async () => {
-    // Prompt for join code
     const joinCode = prompt('Enter Join Code:');
     if (joinCode) {
       try {
-        // Resolve join code to party ID
         const { partyId } = await api.resolveJoinCode(joinCode.toUpperCase());
-        const userId = `guest_${Date.now()}`;
+        const userId = user?.uid ?? `guest_${Date.now()}`;
         await party.joinParty(partyId, userId);
       } catch (error) {
         alert('Invalid join code. Please check the code and try again.');
@@ -164,12 +181,14 @@ export default function App() {
             <SignUpCard
               onSignUp={handleSignUp}
               onGoogleSignUp={handleGoogleSignUp}
+              onSpotifySignUp={spotify.isConfigured ? spotify.login : undefined}
               onLogin={() => setCurrentView('login')}
             />
           ) : (
             <LoginCard
               onLogin={handleLogin}
               onGoogleLogin={handleGoogleLogin}
+              onSpotifyLogin={spotify.isConfigured ? spotify.login : undefined}
               onForgotPassword={handleForgotPassword}
               onSignUp={() => setCurrentView('signup')}
             />
@@ -177,5 +196,15 @@ export default function App() {
         </>
       )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <SpotifyProvider>
+        <AppContent />
+      </SpotifyProvider>
+    </AuthProvider>
   );
 }
