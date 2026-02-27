@@ -17,17 +17,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Listen for auth state changes
+  // Listen for auth state changes (only when Firebase is configured)
   useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
       setUser(currentUser);
       setLoading(false);
     });
-
     return unsubscribe;
   }, []);
 
   const signUp = async (email: string, password: string) => {
+    if (!auth || !db) {
+      throw new Error('Firebase is not configured. Add your credentials to frontend/.env.local');
+    }
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const newUser = userCredential.user;
@@ -46,6 +52,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (email: string, password: string) => {
+    if (!auth) {
+      throw new Error('Firebase is not configured. Add your credentials to frontend/.env.local');
+    }
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
@@ -55,6 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    if (!auth) {
+      throw new Error('Firebase is not configured. Add your credentials to frontend/.env.local');
+    }
     try {
       await signOut(auth);
     } catch (error) {

@@ -71,9 +71,25 @@ function base64UrlEncode(array: Uint8Array): string {
 }
 
 /**
+ * Check if Spotify OAuth is configured
+ */
+export function isSpotifyConfigured(): boolean {
+  return !!(
+    CLIENT_ID &&
+    REDIRECT_URI &&
+    CLIENT_ID !== 'your_spotify_client_id_here'
+  );
+}
+
+/**
  * Redirect user to Spotify authorization page
  */
 export async function initiateSpotifyLogin(): Promise<void> {
+  if (!isSpotifyConfigured()) {
+    throw new Error(
+      'Spotify is not configured. Add VITE_SPOTIFY_CLIENT_ID and VITE_SPOTIFY_REDIRECT_URI to frontend/.env.local. See frontend/.env.example for setup.'
+    );
+  }
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
 

@@ -1,43 +1,22 @@
 /**
  * Spotify Connect Button Component
+ * Uses SpotifyContext for auto-loaded user data
  */
 
-import { useState, useEffect } from 'react';
-import { initiateSpotifyLogin, isLoggedIn, logout, getMe, type SpotifyUser } from '@/lib/spotify';
+import { useSpotify } from '@/contexts/SpotifyContext';
 
 const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
 const isSpotifyEnabled = !!SPOTIFY_CLIENT_ID && SPOTIFY_CLIENT_ID !== 'your_spotify_client_id_here';
 
 export function SpotifyConnect() {
-  const [user, setUser] = useState<SpotifyUser | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    // Check if user is already logged in and fetch profile
-    if (isSpotifyEnabled && isLoggedIn()) {
-      loadUserProfile();
-    }
-  }, []);
-
-  const loadUserProfile = async () => {
-    try {
-      const profile = await getMe();
-      setUser(profile);
-    } catch (error) {
-      console.error('Failed to load Spotify profile:', error);
-      // If profile fetch fails, clear tokens
-      logout();
-    }
-  };
+  const { user, loading, login, logout } = useSpotify();
 
   const handleConnect = () => {
-    setLoading(true);
-    initiateSpotifyLogin();
+    login();
   };
 
   const handleDisconnect = () => {
     logout();
-    setUser(null);
   };
 
   // If Spotify integration is disabled, show a note
@@ -77,7 +56,7 @@ export function SpotifyConnect() {
       className="px-3 py-1.5 rounded-lg text-xs bg-[#1DB954] text-white hover:bg-[#1ed760] transition-all duration-200 disabled:opacity-50 flex items-center gap-2"
     >
       {loading ? (
-        'Connecting...'
+        'Loading...'
       ) : (
         <>
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
