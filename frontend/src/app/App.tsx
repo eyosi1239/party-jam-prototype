@@ -3,6 +3,7 @@ import { SignUpCard } from '@/app/components/SignUpCard';
 import { GuestView } from '@/app/pages/GuestView';
 import { HostView } from '@/app/pages/HostView';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { SpotifyProvider, useSpotify } from '@/contexts/SpotifyContext';
 import { SpotifyCallback } from '@/app/pages/SpotifyCallback';
 import { SpotifyConnect } from '@/app/components/SpotifyConnect';
 import { useState, useEffect } from 'react';
@@ -13,6 +14,7 @@ type View = 'login' | 'signup' | 'guest' | 'host';
 
 function AppContent() {
   const { user, loading } = useAuth();
+  const spotify = useSpotify();
   const [currentView, setCurrentView] = useState<View>('login');
   const party = useParty();
 
@@ -29,8 +31,11 @@ function AppContent() {
     }
   }, [party.partyState, party.userId]);
 
-  // Redirect to guest view if user is logged in
-  if (user && (currentView === 'login' || currentView === 'signup')) {
+  // Logged in = Firebase user OR Spotify user
+  const isLoggedIn = !!user || !!spotify.user;
+
+  // Redirect to guest view if user is logged in (Firebase or Spotify)
+  if (isLoggedIn && (currentView === 'login' || currentView === 'signup')) {
     return <GuestView partyState={party.partyState} onVote={party.vote} />;
   }
 
@@ -176,12 +181,14 @@ function AppContent() {
             <SignUpCard
               onSignUp={handleSignUp}
               onGoogleSignUp={handleGoogleSignUp}
+              onSpotifySignUp={spotify.isConfigured ? spotify.login : undefined}
               onLogin={() => setCurrentView('login')}
             />
           ) : (
             <LoginCard
               onLogin={handleLogin}
               onGoogleLogin={handleGoogleLogin}
+              onSpotifyLogin={spotify.isConfigured ? spotify.login : undefined}
               onForgotPassword={handleForgotPassword}
               onSignUp={() => setCurrentView('signup')}
             />
@@ -195,7 +202,9 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <SpotifyProvider>
+        <AppContent />
+      </SpotifyProvider>
     </AuthProvider>
   );
 }
