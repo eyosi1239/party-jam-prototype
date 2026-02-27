@@ -4,6 +4,16 @@ import { HostPlayerControls } from '@/app/components/HostPlayerControls';
 import { Modal } from '@/app/components/Modal';
 import { Lock, RefreshCw, Users, Activity } from 'lucide-react';
 import { useState } from 'react';
+import type { PartyState } from '@/lib/types';
+import { getMusicProvider } from '@/lib/music';
+import { api } from '@/lib/api';
+
+interface HostViewProps {
+  partyState: PartyState | null;
+  joinCode: string | null;
+  onStartParty: () => Promise<void>;
+  onUpdateSettings: (settings: { mood?: string; kidFriendly?: boolean; allowSuggestions?: boolean }) => Promise<void>;
+}
 
 const mockQueue = [
   {
@@ -56,13 +66,26 @@ const mockPeople = [
   { id: 4, name: 'Jordan', avatar: 'J', color: '#00cc34' }
 ];
 
-export function HostView() {
+export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings }: HostViewProps) {
   const [isRoomLocked, setIsRoomLocked] = useState(false);
-  const [allowDownvotes, setAllowDownvotes] = useState(true);
-  const [allowExplicit, setAllowExplicit] = useState(true);
   const [showNewCodeModal, setShowNewCodeModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [selectedSongToRemove, setSelectedSongToRemove] = useState<string | null>(null);
+  const [isSeedingQueue, setIsSeedingQueue] = useState(false);
+
+  // Use real party state or show loading
+  if (!partyState) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#000000] via-[#0a0a0a] to-[#050505] flex items-center justify-center">
+        <div className="text-white text-xl">Loading party...</div>
+      </div>
+    );
+  }
+
+  const queue = partyState.queue || [];
+  const members = partyState.members || [];
+  const nowPlaying = partyState.nowPlaying;
+  const { party } = partyState;
 
   const handleGenerateNewCode = () => {
     setShowNewCodeModal(false);
@@ -72,6 +95,23 @@ export function HostView() {
   const handleRemoveSong = () => {
     setShowRemoveModal(false);
     console.log('Remove song:', selectedSongToRemove);
+  };
+
+  const handleSeedQueue = async () => {
+    if (!partyState) return;
+
+    setIsSeedingQueue(true);
+    try {
+      const musicProvider = getMusicProvider();
+      const tracks = await musicProvider.getRecommendations(party.mood, 10);
+
+      await api.seedQueue(party.partyId, party.hostId, tracks);
+      console.log('Queue seeded with 10 tracks');
+    } catch (error) {
+      console.error('Failed to seed queue:', error);
+    } finally {
+      setIsSeedingQueue(false);
+    }
   };
 
   return (
@@ -84,8 +124,8 @@ export function HostView() {
 
       {/* Navigation */}
       <NavBar
-        roomName="Robel's Kickback"
-        roomCode="AJ4K9P"
+        roomName={party.mood ? `${party.mood} Party` : 'Party Jam'}
+        roomCode={joinCode || party.partyId.slice(0, 6).toUpperCase()}
         onSettings={() => console.log('Settings')}
         onProfile={() => console.log('Profile')}
       />
@@ -96,51 +136,76 @@ export function HostView() {
           {/* Left Column - Player & Queue */}
           <div className="space-y-6">
             {/* Now Playing Section */}
-            <HostPlayerControls
-              albumArt="https://images.unsplash.com/photo-1644855640845-ab57a047320e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400"
-              title="As It Was"
-              artist="Harry Styles"
-              isPlaying={true}
-              currentTime="1:23"
-              totalTime="2:47"
-              progress={50}
-              volume={70}
-              onPlayPause={() => console.log('Play/Pause')}
-              onSkip={() => console.log('Skip')}
-              onBack={() => console.log('Back')}
-              onVolumeChange={(vol) => console.log('Volume:', vol)}
-            />
+            {nowPlaying ? (
+              <HostPlayerControls
+                albumArt={nowPlaying.albumArtUrl || 'https://images.unsplash.com/photo-1644855640845-ab57a047320e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400'}
+                title={nowPlaying.title}
+                artist={nowPlaying.artist}
+                isPlaying={true}
+                currentTime="0:00"
+                totalTime="3:00"
+                progress={0}
+                volume={70}
+                onPlayPause={() => console.log('Play/Pause')}
+                onSkip={() => console.log('Skip')}
+                onBack={() => console.log('Back')}
+                onVolumeChange={(vol) => console.log('Volume:', vol)}
+              />
+            ) : (
+              <div className="bg-gradient-to-b from-[#0a0a0a] to-[#050505] border border-[#1a1a1a] rounded-3xl p-8 text-center">
+                <p className="text-[#9ca3af]">No song playing</p>
+                {party.status === 'CREATED' && (
+                  <button
+                    onClick={onStartParty}
+                    className="mt-4 px-6 py-3 bg-[#00ff41] text-black rounded-xl font-medium hover:bg-[#00e639] transition-all duration-200"
+                  >
+                    Start Party
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Queue Section */}
             <div className="bg-gradient-to-b from-[#0a0a0a] to-[#050505] border border-[#1a1a1a] rounded-3xl p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl text-white font-medium">Queue</h2>
-                <span className="text-[#9ca3af]">{mockQueue.length} songs</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-[#9ca3af]">{queue.length} songs</span>
+                  {party.status === 'LIVE' && queue.length === 0 && (
+                    <button
+                      onClick={handleSeedQueue}
+                      disabled={isSeedingQueue}
+                      className="px-4 py-2 bg-[#00ff41] text-black rounded-xl font-medium hover:bg-[#00e639] transition-all duration-200 disabled:opacity-50 text-sm"
+                    >
+                      {isSeedingQueue ? 'Seeding...' : 'Seed Queue'}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-3">
-                {mockQueue.map((song) => (
+                {queue.map((song, index) => (
                   <QueueItemLarge
-                    key={song.id}
-                    position={song.position}
-                    albumArt={song.albumArt}
+                    key={song.trackId}
+                    position={index + 1}
+                    albumArt={song.albumArtUrl || 'https://images.unsplash.com/photo-1644855640845-ab57a047320e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400'}
                     title={song.title}
                     artist={song.artist}
                     upvotes={song.upvotes}
-                    trendingUp={song.trendingUp}
-                    isPinned={song.isPinned}
-                    onSkipNext={() => console.log('Skip next:', song.id)}
+                    trendingUp={false}
+                    isPinned={false}
+                    onSkipNext={() => console.log('Skip next:', song.trackId)}
                     onRemove={() => {
                       setSelectedSongToRemove(song.title);
                       setShowRemoveModal(true);
                     }}
-                    onPin={() => console.log('Pin:', song.id)}
+                    onPin={() => console.log('Pin:', song.trackId)}
                   />
                 ))}
               </div>
 
               {/* Empty Queue State */}
-              {mockQueue.length === 0 && (
+              {queue.length === 0 && (
                 <div className="text-center py-16">
                   <div className="text-[#6b7280] mb-4">
                     <svg className="w-16 h-16 mx-auto opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -163,7 +228,7 @@ export function HostView() {
               {/* Large Room Code */}
               <div className="bg-[#00ff41] rounded-2xl p-6 mb-4 text-center">
                 <div className="text-5xl font-bold text-black tracking-widest mb-2">
-                  AJ4K9P
+                  {joinCode || party.partyId.slice(0, 6).toUpperCase()}
                 </div>
                 <div className="text-black text-sm opacity-70">Share this code to invite guests</div>
               </div>
@@ -217,19 +282,20 @@ export function HostView() {
                   <Users className="w-5 h-5 text-[#00ff41]" />
                   People in room
                 </h3>
-                <span className="text-[#9ca3af] text-sm">{mockPeople.length}</span>
+                <span className="text-[#9ca3af] text-sm">{members.length} ({partyState.activeMembersCount} active)</span>
               </div>
 
               <div className="space-y-3">
-                {mockPeople.map((person) => (
-                  <div key={person.id} className="flex items-center gap-3">
-                    <div 
-                      className="w-10 h-10 rounded-full flex items-center justify-center font-medium"
-                      style={{ backgroundColor: person.color, color: '#000' }}
+                {members.map((member, index) => (
+                  <div key={member.userId} className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center font-medium bg-[#00ff41] text-black"
                     >
-                      {person.avatar}
+                      {member.userId.charAt(0).toUpperCase()}
                     </div>
-                    <span className="text-white">{person.name}</span>
+                    <span className="text-white">
+                      {member.userId} {member.role === 'HOST' && '(Host)'}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -238,32 +304,32 @@ export function HostView() {
             {/* Settings */}
             <div className="bg-gradient-to-b from-[#0a0a0a] to-[#050505] border border-[#1a1a1a] rounded-3xl p-6">
               <h3 className="text-white font-medium mb-4">Settings</h3>
-              
+
               <div className="space-y-3">
                 <button
-                  onClick={() => setAllowDownvotes(!allowDownvotes)}
+                  onClick={() => onUpdateSettings({ allowSuggestions: !party.allowSuggestions })}
                   className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-[#1a1a1a] text-[#9ca3af] hover:border-[#00ff41]/50 border border-transparent transition-all duration-200"
                 >
-                  <span>Allow downvotes</span>
+                  <span>Allow suggestions</span>
                   <div className={`w-12 h-6 rounded-full transition-all duration-200 ${
-                    allowDownvotes ? 'bg-[#00ff41]' : 'bg-[#2a2a2a]'
+                    party.allowSuggestions ? 'bg-[#00ff41]' : 'bg-[#2a2a2a]'
                   }`}>
                     <div className={`w-5 h-5 rounded-full bg-white transition-all duration-200 ${
-                      allowDownvotes ? 'translate-x-6' : 'translate-x-0.5'
+                      party.allowSuggestions ? 'translate-x-6' : 'translate-x-0.5'
                     } mt-0.5`} />
                   </div>
                 </button>
 
                 <button
-                  onClick={() => setAllowExplicit(!allowExplicit)}
+                  onClick={() => onUpdateSettings({ kidFriendly: !party.kidFriendly })}
                   className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-[#1a1a1a] text-[#9ca3af] hover:border-[#00ff41]/50 border border-transparent transition-all duration-200"
                 >
-                  <span>Allow explicit content</span>
+                  <span>Kid-friendly mode</span>
                   <div className={`w-12 h-6 rounded-full transition-all duration-200 ${
-                    allowExplicit ? 'bg-[#00ff41]' : 'bg-[#2a2a2a]'
+                    party.kidFriendly ? 'bg-[#00ff41]' : 'bg-[#2a2a2a]'
                   }`}>
                     <div className={`w-5 h-5 rounded-full bg-white transition-all duration-200 ${
-                      allowExplicit ? 'translate-x-6' : 'translate-x-0.5'
+                      party.kidFriendly ? 'translate-x-6' : 'translate-x-0.5'
                     } mt-0.5`} />
                   </div>
                 </button>
