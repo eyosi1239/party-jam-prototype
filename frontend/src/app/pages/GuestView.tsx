@@ -6,6 +6,12 @@ import { PlayerBar } from '@/app/components/PlayerBar';
 import { Toast } from '@/app/components/Toast';
 import { Search, SlidersHorizontal } from 'lucide-react';
 import { useState } from 'react';
+import type { PartyState } from '@/lib/types';
+
+interface GuestViewProps {
+  partyState: PartyState | null;
+  onVote: (trackId: string, vote: 'UP' | 'DOWN' | 'NONE', context: 'QUEUE' | 'TESTING') => Promise<void>;
+}
 
 const mockRecommendations = [
   {
@@ -60,14 +66,31 @@ const mockQueue = [
   { id: 5, position: 5, title: 'Vampire', artist: 'Olivia Rodrigo', upvotes: 4 }
 ];
 
-export function GuestView() {
+export function GuestView({ partyState, onVote }: GuestViewProps) {
   const [selectedFilter, setSelectedFilter] = useState('Recommended');
   const [searchQuery, setSearchQuery] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [activeTab, setActiveTab] = useState<'recs' | 'queue'>('recs');
 
+  // Use real party state or show loading
+  if (!partyState) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#000000] via-[#0a0a0a] to-[#050505] flex items-center justify-center">
+        <div className="text-white text-xl">Loading party...</div>
+      </div>
+    );
+  }
+
+  const queue = partyState.queue || [];
+  const nowPlaying = partyState.nowPlaying;
+  const { party } = partyState;
+
   const handleAddSong = () => {
     setShowToast(true);
+  };
+
+  const handleUpvote = (trackId: string) => {
+    onVote(trackId, 'UP', 'QUEUE');
   };
 
   return (
@@ -80,8 +103,8 @@ export function GuestView() {
 
       {/* Navigation */}
       <NavBar
-        roomName="Robel's Kickback"
-        roomCode="AJ4K9P"
+        roomName={party.mood ? `${party.mood} Party` : 'Party Jam'}
+        roomCode={party.partyId.slice(0, 6).toUpperCase()}
         onLeaveRoom={() => console.log('Leave room')}
         onSettings={() => console.log('Settings')}
         onProfile={() => console.log('Profile')}
@@ -200,18 +223,23 @@ export function GuestView() {
                   </div>
 
                   <div className="space-y-2 max-h-[600px] overflow-y-auto scrollbar-hide">
-                    {mockQueue.map((item) => (
+                    {queue.map((song, index) => (
                       <QueueItem
-                        key={item.id}
-                        position={item.position}
-                        title={item.title}
-                        artist={item.artist}
-                        upvotes={item.upvotes}
-                        isNowPlaying={item.isNowPlaying}
-                        onUpvote={() => console.log('Upvote')}
+                        key={song.trackId}
+                        position={index + 1}
+                        title={song.title}
+                        artist={song.artist}
+                        upvotes={song.upvotes}
+                        isNowPlaying={nowPlaying?.trackId === song.trackId}
+                        onUpvote={() => handleUpvote(song.trackId)}
                         allowDownvotes={true}
                       />
                     ))}
+                    {queue.length === 0 && (
+                      <div className="text-center py-8 text-[#9ca3af]">
+                        Queue is empty
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -221,18 +249,20 @@ export function GuestView() {
       </div>
 
       {/* Player Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-10">
-        <PlayerBar
-          albumArt="https://images.unsplash.com/photo-1644855640845-ab57a047320e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400"
-          title="As It Was"
-          artist="Harry Styles"
-          isPlaying={true}
-          progress={45}
-          isHost={false}
-          onPlayPause={() => console.log('Play/Pause')}
-          onSkip={() => console.log('Skip')}
-        />
-      </div>
+      {nowPlaying && (
+        <div className="fixed bottom-0 left-0 right-0 z-10">
+          <PlayerBar
+            albumArt={nowPlaying.albumArtUrl || 'https://images.unsplash.com/photo-1644855640845-ab57a047320e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400'}
+            title={nowPlaying.title}
+            artist={nowPlaying.artist}
+            isPlaying={true}
+            progress={0}
+            isHost={false}
+            onPlayPause={() => console.log('Play/Pause')}
+            onSkip={() => console.log('Skip')}
+          />
+        </div>
+      )}
 
       {/* Toast Notification */}
       {showToast && (

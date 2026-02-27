@@ -3,17 +3,35 @@ import { SignUpCard } from '@/app/components/SignUpCard';
 import { GuestView } from '@/app/pages/GuestView';
 import { HostView } from '@/app/pages/HostView';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { useState } from 'react';
+import { SpotifyCallback } from '@/app/pages/SpotifyCallback';
+import { SpotifyConnect } from '@/app/components/SpotifyConnect';
+import { useState, useEffect } from 'react';
+import { useParty } from '@/lib/useParty';
+import { api } from '@/lib/api';
 
 type View = 'login' | 'signup' | 'guest' | 'host';
 
 function AppContent() {
   const { user, loading } = useAuth();
   const [currentView, setCurrentView] = useState<View>('login');
+  const party = useParty();
+
+  // Handle Spotify OAuth callback
+  if (window.location.pathname === '/callback') {
+    return <SpotifyCallback />;
+  }
+
+  // Auto-switch to host/guest view when party is created/joined
+  useEffect(() => {
+    if (party.partyState) {
+      const isHost = party.partyState.party.hostId === party.userId;
+      setCurrentView(isHost ? 'host' : 'guest');
+    }
+  }, [party.partyState, party.userId]);
 
   // Redirect to guest view if user is logged in
   if (user && (currentView === 'login' || currentView === 'signup')) {
-    return <GuestView />;
+    return <GuestView partyState={party.partyState} onVote={party.vote} />;
   }
 
   if (loading) {
@@ -27,6 +45,9 @@ function AppContent() {
   const handleLogin = (email: string, password: string, roomCode?: string) => {
     console.log('Login:', { email, password, roomCode });
     // Firebase login is handled by LoginCard
+    if (roomCode) {
+      console.log('Joining party with code:', roomCode);
+    }
     setCurrentView('guest');
   };
 
@@ -54,6 +75,27 @@ function AppContent() {
     setCurrentView('login');
   };
 
+  // Create party (host)
+  const handleCreateParty = async () => {
+    const userId = user?.uid ?? `host_${Date.now()}`;
+    await party.createParty(userId, 'chill');
+  };
+
+  // Join party (guest)
+  const handleJoinParty = async () => {
+    const joinCode = prompt('Enter Join Code:');
+    if (joinCode) {
+      try {
+        const { partyId } = await api.resolveJoinCode(joinCode.toUpperCase());
+        const userId = user?.uid ?? `guest_${Date.now()}`;
+        await party.joinParty(partyId, userId);
+      } catch (error) {
+        alert('Invalid join code. Please check the code and try again.');
+        console.error('Join error:', error);
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-[#000000] via-[#0a0a0a] to-[#050505] p-4 relative overflow-hidden">
       {/* Background Pattern */}
@@ -73,7 +115,8 @@ function AppContent() {
       ></div>
 
       {/* View Switcher (for demo purposes) */}
-      <div className="fixed top-4 right-4 z-50 flex gap-2">
+      <div className="fixed top-4 right-4 z-50 flex gap-2 flex-wrap max-w-md">
+        <SpotifyConnect />
         <button
           onClick={() => setCurrentView('login')}
           className={`px-3 py-1.5 rounded-lg text-xs transition-all duration-200 ${
@@ -95,30 +138,36 @@ function AppContent() {
           Sign Up
         </button>
         <button
-          onClick={() => setCurrentView('guest')}
-          className={`px-3 py-1.5 rounded-lg text-xs transition-all duration-200 ${
-            currentView === 'guest'
-              ? 'bg-[#00ff41] text-black'
-              : 'bg-[#1a1a1a] text-[#9ca3af] border border-[#2a2a2a]'
-          }`}
+          onClick={handleCreateParty}
+          disabled={party.loading}
+          className="px-3 py-1.5 rounded-lg text-xs bg-[#00ff41] text-black hover:bg-[#00e639] transition-all duration-200 disabled:opacity-50"
         >
-          Guest View
+          {party.loading ? 'Creating...' : '+ Create Party (Host)'}
         </button>
         <button
-          onClick={() => setCurrentView('host')}
-          className={`px-3 py-1.5 rounded-lg text-xs transition-all duration-200 ${
-            currentView === 'host'
-              ? 'bg-[#00ff41] text-black'
-              : 'bg-[#1a1a1a] text-[#9ca3af] border border-[#2a2a2a]'
-          }`}
+          onClick={handleJoinParty}
+          disabled={party.loading}
+          className="px-3 py-1.5 rounded-lg text-xs bg-[#1a1a1a] text-[#00ff41] border border-[#00ff41]/30 hover:bg-[#00ff41]/10 transition-all duration-200 disabled:opacity-50"
         >
-          Host View
+          {party.loading ? 'Joining...' : 'Join Party (Guest)'}
         </button>
+        {party.partyId && (
+          <div className="px-3 py-1.5 rounded-lg text-xs bg-[#2a2a2a] text-white border border-[#3a3a3a]">
+            Party: {party.partyId.slice(0, 12)}... | Code: {party.joinCode || 'N/A'}
+          </div>
+        )}
       </div>
 
       {/* Render based on current view */}
-      {currentView === 'guest' && <GuestView />}
-      {currentView === 'host' && <HostView />}
+      {currentView === 'guest' && <GuestView partyState={party.partyState} onVote={party.vote} />}
+      {currentView === 'host' && (
+        <HostView
+          partyState={party.partyState}
+          joinCode={party.joinCode}
+          onStartParty={party.startParty}
+          onUpdateSettings={party.updateSettings}
+        />
+      )}
 
       {/* Login or Sign Up Card */}
       {(currentView === 'login' || currentView === 'signup') && (
