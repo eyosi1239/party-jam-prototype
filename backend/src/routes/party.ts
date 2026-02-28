@@ -107,6 +107,17 @@ router.post('/party/:partyId/join', (req: Request, res: Response) => {
     member = store.getMember(partyId, userId)!;
   }
 
+  // Broadcast updated members list to everyone in the room
+  if (io) {
+    const state = store.getState(partyId);
+    if (state) {
+      io.to(`party:${partyId}`).emit('party:membersUpdated', {
+        members: state.members,
+        activeMembersCount: state.activeMembersCount,
+      });
+    }
+  }
+
   res.json({
     partyId,
     member,

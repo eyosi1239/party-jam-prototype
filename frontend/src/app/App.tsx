@@ -14,7 +14,7 @@ import { api } from '@/lib/api';
 type View = 'login' | 'signup' | 'guest' | 'host';
 
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, loading, resetPassword } = useAuth();
   const spotify = useSpotify();
   const [currentView, setCurrentView] = useState<View>('login');
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -26,13 +26,16 @@ function AppContent() {
     return <SpotifyCallback />;
   }
 
-  // Auto-switch to host/guest view when party is created/joined
+  // Auto-switch to host/guest view when party is created/joined; back to lobby when left
   useEffect(() => {
     if (party.partyState) {
       const isHost = party.partyState.party.hostId === party.userId;
       setCurrentView(isHost ? 'host' : 'guest');
+    } else if (!party.partyId && (currentView === 'host' || currentView === 'guest')) {
+      // Party was left/ended — return to lobby
+      setCurrentView('guest');
     }
-  }, [party.partyState, party.userId]);
+  }, [party.partyState, party.partyId, party.userId]);
 
   // Logged in = Firebase user OR Spotify user
   const isLoggedIn = !!user || !!spotify.user;
@@ -77,8 +80,17 @@ function AppContent() {
     setCurrentView('guest');
   };
 
-  const handleForgotPassword = () => {
-    console.log('Forgot password');
+  const handleForgotPassword = async (email: string) => {
+    if (!email) {
+      alert('Enter your email address first, then click "Forgot password?"');
+      return;
+    }
+    try {
+      await resetPassword(email);
+      alert(`Password reset email sent to ${email}`);
+    } catch (err: any) {
+      alert(err?.message ?? 'Failed to send reset email. Check your email address.');
+    }
   };
 
   // Open create modal
@@ -120,7 +132,7 @@ function AppContent() {
 
 
       {/* Render based on current view */}
-      {currentView === 'guest' && <GuestView partyState={party.partyState} partyId={party.partyId} userId={party.userId} onVote={party.vote} onCreateParty={handleCreateParty} onJoinParty={handleJoinParty} onLeaveRoom={party.leaveParty} />}
+      {currentView === 'guest' && <GuestView partyState={party.partyState} partyId={party.partyId} userId={party.userId} joinCode={party.joinCode} onVote={party.vote} onCreateParty={handleCreateParty} onJoinParty={handleJoinParty} onLeaveRoom={party.leaveParty} />}
       {currentView === 'host' && (
         <HostView
           partyState={party.partyState}
@@ -128,6 +140,7 @@ function AppContent() {
           onStartParty={party.startParty}
           onUpdateSettings={party.updateSettings}
           onRegenerateCode={party.regenerateCode}
+          onLeaveRoom={party.leaveParty}
         />
       )}
 

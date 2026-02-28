@@ -15,12 +15,14 @@ interface HostViewProps {
   onStartParty: () => Promise<void>;
   onUpdateSettings: (settings: { mood?: string; kidFriendly?: boolean; allowSuggestions?: boolean }) => Promise<void>;
   onRegenerateCode: () => Promise<void>;
+  onLeaveRoom?: () => void;
 }
 
-export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings, onRegenerateCode }: HostViewProps) {
+export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings, onRegenerateCode, onLeaveRoom }: HostViewProps) {
   const [isRoomLocked, setIsRoomLocked] = useState(false);
   const [showNewCodeModal, setShowNewCodeModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [showEndPartyModal, setShowEndPartyModal] = useState(false);
   const [selectedSongToRemove, setSelectedSongToRemove] = useState<{ title: string; trackId: string } | null>(null);
   const [isSeedingQueue, setIsSeedingQueue] = useState(false);
 
@@ -85,6 +87,16 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings,
     setSelectedSongToRemove(null);
   };
 
+  const handleEndParty = async () => {
+    setShowEndPartyModal(false);
+    try {
+      await api.endParty(party.partyId, party.hostId);
+    } catch (err) {
+      console.error('Failed to end party:', err);
+    }
+    onLeaveRoom?.();
+  };
+
   const handleSeedQueue = async () => {
     if (!partyState) return;
 
@@ -114,6 +126,7 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings,
       <NavBar
         roomName={party.mood ? `${party.mood} Party` : 'Party Jam'}
         roomCode={joinCode || party.partyId.slice(0, 6).toUpperCase()}
+        onLeaveRoom={() => setShowEndPartyModal(true)}
         onSettings={() => console.log('Settings')}
         onProfile={() => console.log('Profile')}
       />
@@ -388,6 +401,31 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings,
         }
       >
         <p>Are you sure you want to remove "{selectedSongToRemove?.title}" from the queue?</p>
+      </Modal>
+
+      {/* End Party Modal */}
+      <Modal
+        isOpen={showEndPartyModal}
+        onClose={() => setShowEndPartyModal(false)}
+        title="End Party?"
+        actions={
+          <>
+            <button
+              onClick={() => setShowEndPartyModal(false)}
+              className="px-6 py-2.5 rounded-xl bg-[#1a1a1a] text-[#9ca3af] hover:bg-[#2a2a2a] transition-all duration-200"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleEndParty}
+              className="px-6 py-2.5 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all duration-200 font-medium"
+            >
+              End Party
+            </button>
+          </>
+        }
+      >
+        <p>This will end the party for everyone. All guests will be disconnected.</p>
       </Modal>
     </div>
   );

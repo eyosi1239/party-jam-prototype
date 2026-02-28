@@ -305,6 +305,18 @@ export function useParty(): UsePartyResult {
       setJoinCode(data.joinCode);
     };
 
+    // Update members list when someone joins or leaves
+    const handleMembersUpdated = (data: any) => {
+      setPartyState((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          members: data.members,
+          activeMembersCount: data.activeMembersCount,
+        };
+      });
+    };
+
     // Register listeners
     onSocketEvent('party:queueUpdated', handleQueueUpdate);
     onSocketEvent('party:voteUpdate', handleVoteUpdate);
@@ -314,6 +326,7 @@ export function useParty(): UsePartyResult {
     onSocketEvent('party:suggestionTesting', handleSuggestionTesting);
     onSocketEvent('party:suggestionExpired', handleSuggestionExpired);
     onSocketEvent('party:codeRegenerated', handleCodeRegenerated);
+    onSocketEvent('party:membersUpdated', handleMembersUpdated);
     onSocketEvent('party:error', handleError);
 
     // Cleanup
@@ -326,6 +339,7 @@ export function useParty(): UsePartyResult {
       offSocketEvent('party:suggestionTesting', handleSuggestionTesting);
       offSocketEvent('party:suggestionExpired', handleSuggestionExpired);
       offSocketEvent('party:codeRegenerated', handleCodeRegenerated);
+      offSocketEvent('party:membersUpdated', handleMembersUpdated);
       offSocketEvent('party:error', handleError);
     };
   }, [partyId]);
