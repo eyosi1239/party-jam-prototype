@@ -299,7 +299,7 @@ export function GuestView({ partyState, partyId, userId, onVote, onCreateParty, 
                         upvotes={song.upvotes}
                         isNowPlaying={nowPlaying?.trackId === song.trackId}
                         onUpvote={() => handleUpvote(song.trackId)}
-                        allowDownvotes={true}
+                        allowDownvotes={false}
                       />
                     ))}
                     {queue.length === 0 && (

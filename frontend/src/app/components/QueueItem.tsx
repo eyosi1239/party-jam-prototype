@@ -13,28 +13,21 @@ interface QueueItemProps {
   allowDownvotes?: boolean;
 }
 
-export function QueueItem({ 
-  position, 
-  title, 
-  artist, 
-  upvotes, 
+export function QueueItem({
+  position,
+  title,
+  artist,
+  upvotes,
   isNowPlaying = false,
   hasUpvoted = false,
   onUpvote,
   onDownvote,
   allowDownvotes = false
 }: QueueItemProps) {
-  const [votes, setVotes] = useState(upvotes);
   const [voted, setVoted] = useState(hasUpvoted);
 
   const handleUpvote = () => {
-    if (voted) {
-      setVotes(votes - 1);
-      setVoted(false);
-    } else {
-      setVotes(votes + 1);
-      setVoted(true);
-    }
+    setVoted(!voted);
     onUpvote?.();
   };
 
@@ -85,7 +78,7 @@ export function QueueItem({
           <span className={`text-xs font-medium ${
             voted ? 'text-[#00ff41]' : 'text-[#9ca3af]'
           }`}>
-            {votes}
+            {upvotes}
           </span>
         </div>
       </div>

@@ -15,7 +15,6 @@ interface HostViewProps {
   onUpdateSettings: (settings: { mood?: string; kidFriendly?: boolean; allowSuggestions?: boolean }) => Promise<void>;
 }
 
-
 export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings }: HostViewProps) {
   const [isRoomLocked, setIsRoomLocked] = useState(false);
   const [showNewCodeModal, setShowNewCodeModal] = useState(false);
