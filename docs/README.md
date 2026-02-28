@@ -25,11 +25,11 @@ The app currently uses a **MockMusicProvider** for testing and development, whic
 **To enable Spotify integration later:**
 
 1. Get a Spotify Client ID from https://developer.spotify.com/dashboard
-2. Add redirect URI: `http://localhost:5173/callback`
+2. Add redirect URI: `http://127.0.0.1:5173/callback`
 3. Set environment variables in `frontend/.env`:
    ```bash
    VITE_SPOTIFY_CLIENT_ID=your_client_id_here
-   VITE_SPOTIFY_REDIRECT_URI=http://localhost:5173/callback
+   VITE_SPOTIFY_REDIRECT_URI=http://127.0.0.1:5173/callback
    ```
 4. The Spotify OAuth PKCE flow code is already implemented and ready to use
 
