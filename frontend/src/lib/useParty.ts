@@ -32,6 +32,7 @@ export interface UsePartyResult {
   startParty: () => Promise<void>;
   vote: (trackId: string, vote: 'UP' | 'DOWN' | 'NONE', context: 'QUEUE' | 'TESTING') => Promise<void>;
   updateSettings: (settings: { mood?: string; kidFriendly?: boolean; allowSuggestions?: boolean }) => Promise<void>;
+  regenerateCode: () => Promise<void>;
   leaveParty: () => void;
 }
 
@@ -179,6 +180,17 @@ export function useParty(): UsePartyResult {
     }
   }, [partyId, userId]);
 
+  // Regenerate join code (host only)
+  const regenerateCode = useCallback(async () => {
+    if (!partyId || !userId) return;
+    try {
+      const result = await api.regenerateCode(partyId, userId);
+      setJoinCode(result.joinCode);
+    } catch (err) {
+      console.error('Failed to regenerate code:', err);
+    }
+  }, [partyId, userId]);
+
   // Leave party
   const leaveParty = useCallback(() => {
     stopHeartbeat();
@@ -288,6 +300,11 @@ export function useParty(): UsePartyResult {
       setError(data.message);
     };
 
+    // Handle new join code (e.g. guest needs to know if code changed)
+    const handleCodeRegenerated = (data: any) => {
+      setJoinCode(data.joinCode);
+    };
+
     // Register listeners
     onSocketEvent('party:queueUpdated', handleQueueUpdate);
     onSocketEvent('party:voteUpdate', handleVoteUpdate);
@@ -296,6 +313,7 @@ export function useParty(): UsePartyResult {
     onSocketEvent('party:nowPlaying', handleNowPlaying);
     onSocketEvent('party:suggestionTesting', handleSuggestionTesting);
     onSocketEvent('party:suggestionExpired', handleSuggestionExpired);
+    onSocketEvent('party:codeRegenerated', handleCodeRegenerated);
     onSocketEvent('party:error', handleError);
 
     // Cleanup
@@ -307,6 +325,7 @@ export function useParty(): UsePartyResult {
       offSocketEvent('party:nowPlaying', handleNowPlaying);
       offSocketEvent('party:suggestionTesting', handleSuggestionTesting);
       offSocketEvent('party:suggestionExpired', handleSuggestionExpired);
+      offSocketEvent('party:codeRegenerated', handleCodeRegenerated);
       offSocketEvent('party:error', handleError);
     };
   }, [partyId]);
@@ -323,6 +342,7 @@ export function useParty(): UsePartyResult {
     startParty,
     vote,
     updateSettings,
+    regenerateCode,
     leaveParty,
   };
 }

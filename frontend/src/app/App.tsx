@@ -164,13 +164,14 @@ function AppContent() {
       </div>
 
       {/* Render based on current view */}
-      {currentView === 'guest' && <GuestView partyState={party.partyState} partyId={party.partyId} userId={party.userId} onVote={party.vote} onCreateParty={handleCreateParty} onJoinParty={handleJoinParty} />}
+      {currentView === 'guest' && <GuestView partyState={party.partyState} partyId={party.partyId} userId={party.userId} onVote={party.vote} onCreateParty={handleCreateParty} onJoinParty={handleJoinParty} onLeaveRoom={party.leaveParty} />}
       {currentView === 'host' && (
         <HostView
           partyState={party.partyState}
           joinCode={party.joinCode}
           onStartParty={party.startParty}
           onUpdateSettings={party.updateSettings}
+          onRegenerateCode={party.regenerateCode}
         />
       )}
 

@@ -18,11 +18,12 @@ interface GuestViewProps {
   onVote: (trackId: string, vote: 'UP' | 'DOWN' | 'NONE', context: 'QUEUE' | 'TESTING') => Promise<void>;
   onCreateParty?: () => void;
   onJoinParty?: () => void;
+  onLeaveRoom?: () => void;
 }
 
 const musicProvider = getMusicProvider();
 
-export function GuestView({ partyState, partyId, userId, onVote, onCreateParty, onJoinParty }: GuestViewProps) {
+export function GuestView({ partyState, partyId, userId, onVote, onCreateParty, onJoinParty, onLeaveRoom }: GuestViewProps) {
   const [selectedFilter, setSelectedFilter] = useState('Recommended');
   const [searchQuery, setSearchQuery] = useState('');
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -169,7 +170,7 @@ export function GuestView({ partyState, partyId, userId, onVote, onCreateParty, 
       <NavBar
         roomName={party?.mood ? `${party.mood} Party` : 'Party Jam'}
         roomCode={partyState.party.partyId.slice(0, 6).toUpperCase()}
-        onLeaveRoom={() => console.log('Leave room')}
+        onLeaveRoom={onLeaveRoom}
         onSettings={() => console.log('Settings')}
         onProfile={() => console.log('Profile')}
       />
