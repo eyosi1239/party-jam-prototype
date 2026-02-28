@@ -36,7 +36,7 @@ function AppContent() {
 
   // Redirect to guest view if user is logged in (Firebase or Spotify)
   if (isLoggedIn && (currentView === 'login' || currentView === 'signup')) {
-    return <GuestView partyState={party.partyState} onVote={party.vote} />;
+    return <GuestView partyState={party.partyState} partyId={party.partyId} userId={party.userId} onVote={party.vote} />;
   }
 
   if (loading) {
@@ -164,7 +164,7 @@ function AppContent() {
       </div>
 
       {/* Render based on current view */}
-      {currentView === 'guest' && <GuestView partyState={party.partyState} onVote={party.vote} />}
+      {currentView === 'guest' && <GuestView partyState={party.partyState} partyId={party.partyId} userId={party.userId} onVote={party.vote} />}
       {currentView === 'host' && (
         <HostView
           partyState={party.partyState}

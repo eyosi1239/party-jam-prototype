@@ -404,7 +404,7 @@ router.post('/party/:partyId/vote', (req: Request, res: Response) => {
 // POST /party/:partyId/suggest - Suggest a song
 router.post('/party/:partyId/suggest', (req: Request, res: Response) => {
   const { partyId } = req.params;
-  const { userId, trackId } = req.body;
+  const { userId, trackId, title, artist, albumArtUrl, explicit: isExplicit } = req.body;
 
   if (!userId || !trackId) {
     return res.status(400).json(createError('INVALID_REQUEST', 'userId and trackId are required'));
@@ -413,6 +413,11 @@ router.post('/party/:partyId/suggest', (req: Request, res: Response) => {
   const party = store.getParty(partyId);
   if (!party) {
     return res.status(404).json(createError('PARTY_NOT_FOUND', 'Party not found'));
+  }
+
+  // Reject explicit tracks when kid-friendly mode is on
+  if (party.kidFriendly && isExplicit) {
+    return res.status(403).json(createError('EXPLICIT_NOT_ALLOWED', 'Explicit tracks are not allowed in kid-friendly mode'));
   }
 
   if (!party.allowSuggestions) {
@@ -438,13 +443,13 @@ router.post('/party/:partyId/suggest', (req: Request, res: Response) => {
   const sampleMembers = randomSample(activeMembers, sampleSize);
   const sampleUserIds = sampleMembers.map((m) => m.userId);
 
-  // Create mock song (in real app, fetch from Spotify API)
+  // Build song from metadata sent by the client
   const song: Song = {
     trackId,
-    title: 'Suggested Song',
-    artist: 'Unknown Artist',
-    albumArtUrl: '',
-    explicit: false,
+    title: title || 'Suggested Song',
+    artist: artist || 'Unknown Artist',
+    albumArtUrl: albumArtUrl || '',
+    explicit: isExplicit ?? false,
     source: 'GUEST_SUGGESTION',
     status: 'TESTING',
     upvotes: 0,

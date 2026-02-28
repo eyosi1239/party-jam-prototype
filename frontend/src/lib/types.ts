@@ -89,6 +89,11 @@ export interface VoteResponse {
 export interface SuggestRequest {
   userId: string;
   trackId: string;
+  // Track metadata so the backend doesn't need to look it up
+  title?: string;
+  artist?: string;
+  albumArtUrl?: string;
+  explicit?: boolean;
 }
 
 export interface SuggestResponse {
