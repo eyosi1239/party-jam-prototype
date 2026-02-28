@@ -4,6 +4,7 @@ import { SongCard } from '@/app/components/SongCard';
 import { QueueItem } from '@/app/components/QueueItem';
 import { PlayerBar } from '@/app/components/PlayerBar';
 import { Toast } from '@/app/components/Toast';
+import { SuggestionTestCard } from '@/app/components/SuggestionTestCard';
 import { Search, SlidersHorizontal } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import type { PartyState } from '@/lib/types';
@@ -34,6 +35,7 @@ export function GuestView({ partyState, partyId, userId, onVote, onCreateParty, 
   const party = partyState?.party ?? null;
   const queue = partyState?.queue ?? [];
   const nowPlaying = partyState?.nowPlaying ?? null;
+  const testingSuggestions = partyState?.testingSuggestions ?? [];
 
   // Load initial recommendations when mood is known
   useEffect(() => {
@@ -174,6 +176,20 @@ export function GuestView({ partyState, partyId, userId, onVote, onCreateParty, 
 
       <div className="flex-1 overflow-hidden pb-20">
         <div className="max-w-[1400px] mx-auto px-6 py-6">
+          {/* Suggestion Testing — shown when host sends a song for crowd review */}
+          {testingSuggestions.length > 0 && (
+            <div className="mb-6 space-y-3">
+              {testingSuggestions.map((song) => (
+                <SuggestionTestCard
+                  key={song.trackId}
+                  song={song}
+                  onUpvote={() => onVote(song.trackId, 'UP', 'TESTING')}
+                  onDownvote={() => onVote(song.trackId, 'DOWN', 'TESTING')}
+                />
+              ))}
+            </div>
+          )}
+
           {/* Search & Filters */}
           <div className="mb-6 space-y-4">
             <div className="relative">

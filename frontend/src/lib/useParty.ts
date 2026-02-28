@@ -262,6 +262,26 @@ export function useParty(): UsePartyResult {
       });
     };
 
+    // Add song to testing suggestions
+    const handleSuggestionTesting = (data: any) => {
+      setPartyState((prev) => {
+        if (!prev) return prev;
+        if (prev.testingSuggestions.find((s) => s.trackId === data.trackId)) return prev;
+        return { ...prev, testingSuggestions: [...prev.testingSuggestions, data.song] };
+      });
+    };
+
+    // Remove expired suggestion
+    const handleSuggestionExpired = (data: any) => {
+      setPartyState((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          testingSuggestions: prev.testingSuggestions.filter((s) => s.trackId !== data.trackId),
+        };
+      });
+    };
+
     // Handle errors
     const handleError = (data: any) => {
       console.error('Socket error:', data);
@@ -274,6 +294,8 @@ export function useParty(): UsePartyResult {
     onSocketEvent('party:presence', handlePresence);
     onSocketEvent('party:settingsUpdated', handleSettingsUpdate);
     onSocketEvent('party:nowPlaying', handleNowPlaying);
+    onSocketEvent('party:suggestionTesting', handleSuggestionTesting);
+    onSocketEvent('party:suggestionExpired', handleSuggestionExpired);
     onSocketEvent('party:error', handleError);
 
     // Cleanup
@@ -283,6 +305,8 @@ export function useParty(): UsePartyResult {
       offSocketEvent('party:presence', handlePresence);
       offSocketEvent('party:settingsUpdated', handleSettingsUpdate);
       offSocketEvent('party:nowPlaying', handleNowPlaying);
+      offSocketEvent('party:suggestionTesting', handleSuggestionTesting);
+      offSocketEvent('party:suggestionExpired', handleSuggestionExpired);
       offSocketEvent('party:error', handleError);
     };
   }, [partyId]);
