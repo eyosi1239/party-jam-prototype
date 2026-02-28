@@ -684,6 +684,130 @@ router.post('/party/:partyId/nowPlaying', (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+// POST /party/:partyId/queue/:trackId/playNext - Move song to front of queue
+router.post('/party/:partyId/queue/:trackId/playNext', (req: Request, res: Response) => {
+  const { partyId, trackId } = req.params;
+  const { hostId } = req.body;
+
+  if (!hostId) {
+    return res.status(400).json(createError('INVALID_REQUEST', 'hostId is required'));
+  }
+
+  const party = store.getParty(partyId);
+  if (!party) {
+    return res.status(404).json(createError('PARTY_NOT_FOUND', 'Party not found'));
+  }
+
+  if (party.hostId !== hostId) {
+    return res.status(403).json(createError('NOT_HOST', 'Only host can reorder queue'));
+  }
+
+  store.moveToFront(partyId, trackId);
+
+  if (io) {
+    const state = store.getState(partyId);
+    if (state) {
+      io.to(`party:${partyId}`).emit('party:queueUpdated', { queue: state.queue });
+    }
+  }
+
+  res.json({ ok: true });
+});
+
+// POST /party/:partyId/queue/:trackId/pin - Pin or unpin a song
+router.post('/party/:partyId/queue/:trackId/pin', (req: Request, res: Response) => {
+  const { partyId, trackId } = req.params;
+  const { hostId, isPinned } = req.body;
+
+  if (!hostId || isPinned === undefined) {
+    return res.status(400).json(createError('INVALID_REQUEST', 'hostId and isPinned are required'));
+  }
+
+  const party = store.getParty(partyId);
+  if (!party) {
+    return res.status(404).json(createError('PARTY_NOT_FOUND', 'Party not found'));
+  }
+
+  if (party.hostId !== hostId) {
+    return res.status(403).json(createError('NOT_HOST', 'Only host can pin songs'));
+  }
+
+  store.setPinned(partyId, trackId, isPinned);
+
+  if (io) {
+    const state = store.getState(partyId);
+    if (state) {
+      io.to(`party:${partyId}`).emit('party:queueUpdated', { queue: state.queue });
+    }
+  }
+
+  res.json({ ok: true });
+});
+
+// POST /party/:partyId/skip - Advance to next song in queue
+router.post('/party/:partyId/skip', (req: Request, res: Response) => {
+  const { partyId } = req.params;
+  const { hostId } = req.body;
+
+  if (!hostId) {
+    return res.status(400).json(createError('INVALID_REQUEST', 'hostId is required'));
+  }
+
+  const party = store.getParty(partyId);
+  if (!party) {
+    return res.status(404).json(createError('PARTY_NOT_FOUND', 'Party not found'));
+  }
+
+  if (party.hostId !== hostId) {
+    return res.status(403).json(createError('NOT_HOST', 'Only host can skip songs'));
+  }
+
+  const nextSong = store.advanceQueue(partyId);
+
+  if (io) {
+    const state = store.getState(partyId);
+    if (state) {
+      io.to(`party:${partyId}`).emit('party:queueUpdated', { queue: state.queue });
+      if (nextSong) {
+        io.to(`party:${partyId}`).emit('party:nowPlaying', {
+          trackId: nextSong.trackId,
+          startedAt: Date.now(),
+        });
+      }
+    }
+  }
+
+  res.json({ ok: true, nowPlaying: nextSong });
+});
+
+// POST /party/:partyId/code/regenerate - Generate a new join code
+router.post('/party/:partyId/code/regenerate', (req: Request, res: Response) => {
+  const { partyId } = req.params;
+  const { hostId } = req.body;
+
+  if (!hostId) {
+    return res.status(400).json(createError('INVALID_REQUEST', 'hostId is required'));
+  }
+
+  const party = store.getParty(partyId);
+  if (!party) {
+    return res.status(404).json(createError('PARTY_NOT_FOUND', 'Party not found'));
+  }
+
+  if (party.hostId !== hostId) {
+    return res.status(403).json(createError('NOT_HOST', 'Only host can regenerate the code'));
+  }
+
+  const newCode = generateJoinCode();
+  store.setJoinCode(newCode, partyId);
+
+  if (io) {
+    io.to(`party:${partyId}`).emit('party:codeRegenerated', { joinCode: newCode });
+  }
+
+  res.json({ joinCode: newCode });
+});
+
 // DELETE /party/:partyId/queue/:trackId - Host force-remove song
 router.delete('/party/:partyId/queue/:trackId', (req: Request, res: Response) => {
   const { partyId, trackId } = req.params;
