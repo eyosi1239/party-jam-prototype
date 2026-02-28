@@ -7,6 +7,7 @@ import { SpotifyProvider, useSpotify } from '@/contexts/SpotifyContext';
 import { SpotifyCallback } from '@/app/pages/SpotifyCallback';
 import { SpotifyConnect } from '@/app/components/SpotifyConnect';
 import { JoinCodeModal } from '@/app/components/JoinCodeModal';
+import { CreatePartyModal } from '@/app/components/CreatePartyModal';
 import { useState, useEffect } from 'react';
 import { useParty } from '@/lib/useParty';
 import { api } from '@/lib/api';
@@ -18,6 +19,7 @@ function AppContent() {
   const spotify = useSpotify();
   const [currentView, setCurrentView] = useState<View>('login');
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const party = useParty();
 
   // Handle Spotify OAuth callback
@@ -80,10 +82,13 @@ function AppContent() {
     console.log('Forgot password');
   };
 
-  // Create party (host)
-  const handleCreateParty = async () => {
+  // Open create modal
+  const handleCreateParty = () => setShowCreateModal(true);
+
+  // Called by CreatePartyModal with chosen mood
+  const handleCreateWithMood = async (mood: string) => {
     const userId = user?.uid ?? `host_${Date.now()}`;
-    await party.createParty(userId, 'chill');
+    await party.createParty(userId, mood);
   };
 
   // Open join modal
@@ -173,6 +178,12 @@ function AppContent() {
         isOpen={showJoinModal}
         onClose={() => setShowJoinModal(false)}
         onJoin={handleJoinWithCode}
+      />
+
+      <CreatePartyModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreate={handleCreateWithMood}
       />
 
       {/* Login or Sign Up Card */}
