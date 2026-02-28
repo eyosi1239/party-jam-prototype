@@ -5,7 +5,6 @@ import { HostView } from '@/app/pages/HostView';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { SpotifyProvider, useSpotify } from '@/contexts/SpotifyContext';
 import { SpotifyCallback } from '@/app/pages/SpotifyCallback';
-import { SpotifyConnect } from '@/app/components/SpotifyConnect';
 import { JoinCodeModal } from '@/app/components/JoinCodeModal';
 import { CreatePartyModal } from '@/app/components/CreatePartyModal';
 import { useState, useEffect } from 'react';
@@ -119,49 +118,6 @@ function AppContent() {
         }}
       ></div>
 
-      {/* View Switcher (for demo purposes) */}
-      <div className="fixed top-4 right-4 z-50 flex gap-2 flex-wrap max-w-md">
-        <SpotifyConnect />
-        <button
-          onClick={() => setCurrentView('login')}
-          className={`px-3 py-1.5 rounded-lg text-xs transition-all duration-200 ${
-            currentView === 'login'
-              ? 'bg-[#00ff41] text-black'
-              : 'bg-[#1a1a1a] text-[#9ca3af] border border-[#2a2a2a]'
-          }`}
-        >
-          Login
-        </button>
-        <button
-          onClick={() => setCurrentView('signup')}
-          className={`px-3 py-1.5 rounded-lg text-xs transition-all duration-200 ${
-            currentView === 'signup'
-              ? 'bg-[#00ff41] text-black'
-              : 'bg-[#1a1a1a] text-[#9ca3af] border border-[#2a2a2a]'
-          }`}
-        >
-          Sign Up
-        </button>
-        <button
-          onClick={handleCreateParty}
-          disabled={party.loading}
-          className="px-3 py-1.5 rounded-lg text-xs bg-[#00ff41] text-black hover:bg-[#00e639] transition-all duration-200 disabled:opacity-50"
-        >
-          {party.loading ? 'Creating...' : '+ Create Party (Host)'}
-        </button>
-        <button
-          onClick={handleJoinParty}
-          disabled={party.loading}
-          className="px-3 py-1.5 rounded-lg text-xs bg-[#1a1a1a] text-[#00ff41] border border-[#00ff41]/30 hover:bg-[#00ff41]/10 transition-all duration-200 disabled:opacity-50"
-        >
-          {party.loading ? 'Joining...' : 'Join Party (Guest)'}
-        </button>
-        {party.partyId && (
-          <div className="px-3 py-1.5 rounded-lg text-xs bg-[#2a2a2a] text-white border border-[#3a3a3a]">
-            Party: {party.partyId.slice(0, 12)}... | Code: {party.joinCode || 'N/A'}
-          </div>
-        )}
-      </div>
 
       {/* Render based on current view */}
       {currentView === 'guest' && <GuestView partyState={party.partyState} partyId={party.partyId} userId={party.userId} onVote={party.vote} onCreateParty={handleCreateParty} onJoinParty={handleJoinParty} onLeaveRoom={party.leaveParty} />}
