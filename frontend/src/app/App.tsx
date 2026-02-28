@@ -80,10 +80,6 @@ function AppContent() {
     console.log('Forgot password');
   };
 
-  const handleLogout = () => {
-    setCurrentView('login');
-  };
-
   // Create party (host)
   const handleCreateParty = async () => {
     const userId = user?.uid ?? `host_${Date.now()}`;
