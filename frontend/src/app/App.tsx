@@ -34,10 +34,12 @@ function AppContent() {
   // Logged in = Firebase user OR Spotify user
   const isLoggedIn = !!user || !!spotify.user;
 
-  // Redirect to guest view if user is logged in (Firebase or Spotify)
-  if (isLoggedIn && (currentView === 'login' || currentView === 'signup')) {
-    return <GuestView partyState={party.partyState} partyId={party.partyId} userId={party.userId} onVote={party.vote} />;
-  }
+  // When user logs in, switch away from login/signup to guest lobby
+  useEffect(() => {
+    if (isLoggedIn && (currentView === 'login' || currentView === 'signup')) {
+      setCurrentView('guest');
+    }
+  }, [isLoggedIn]);
 
   if (loading) {
     return (
@@ -164,7 +166,7 @@ function AppContent() {
       </div>
 
       {/* Render based on current view */}
-      {currentView === 'guest' && <GuestView partyState={party.partyState} partyId={party.partyId} userId={party.userId} onVote={party.vote} />}
+      {currentView === 'guest' && <GuestView partyState={party.partyState} partyId={party.partyId} userId={party.userId} onVote={party.vote} onCreateParty={handleCreateParty} onJoinParty={handleJoinParty} />}
       {currentView === 'host' && (
         <HostView
           partyState={party.partyState}

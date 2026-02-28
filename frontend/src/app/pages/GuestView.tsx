@@ -15,11 +15,13 @@ interface GuestViewProps {
   partyId: string | null;
   userId: string | null;
   onVote: (trackId: string, vote: 'UP' | 'DOWN' | 'NONE', context: 'QUEUE' | 'TESTING') => Promise<void>;
+  onCreateParty?: () => void;
+  onJoinParty?: () => void;
 }
 
 const musicProvider = getMusicProvider();
 
-export function GuestView({ partyState, partyId, userId, onVote }: GuestViewProps) {
+export function GuestView({ partyState, partyId, userId, onVote, onCreateParty, onJoinParty }: GuestViewProps) {
   const [selectedFilter, setSelectedFilter] = useState('Recommended');
   const [searchQuery, setSearchQuery] = useState('');
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -124,9 +126,29 @@ export function GuestView({ partyState, partyId, userId, onVote }: GuestViewProp
   if (!partyState) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#000000] via-[#0a0a0a] to-[#050505] flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-[#00ff41] text-xl mb-2">Waiting for party...</div>
-          <div className="text-[#9ca3af] text-sm">Ask the host to share their join code</div>
+        <div className="text-center space-y-6">
+          <div>
+            <div className="text-[#00ff41] text-2xl font-semibold mb-2">Party Jam</div>
+            <div className="text-[#9ca3af] text-sm">Start a party or join one with a code</div>
+          </div>
+          <div className="flex flex-col gap-3 items-center">
+            {onCreateParty && (
+              <button
+                onClick={onCreateParty}
+                className="w-48 px-6 py-3 rounded-xl bg-[#00ff41] text-black font-semibold hover:bg-[#00e639] transition-all duration-200"
+              >
+                + Create Party
+              </button>
+            )}
+            {onJoinParty && (
+              <button
+                onClick={onJoinParty}
+                className="w-48 px-6 py-3 rounded-xl bg-[#1a1a1a] text-[#00ff41] border border-[#00ff41]/30 font-semibold hover:bg-[#00ff41]/10 transition-all duration-200"
+              >
+                Join Party
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );

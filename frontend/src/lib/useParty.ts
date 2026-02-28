@@ -197,23 +197,7 @@ export function useParty(): UsePartyResult {
     const handleQueueUpdate = (data: any) => {
       setPartyState((prev) => {
         if (!prev) return prev;
-        return {
-          ...prev,
-          queue: data.queue.map((item: any) => {
-            const existing = prev.queue.find((s) => s.trackId === item.trackId);
-            return existing || {
-              trackId: item.trackId,
-              title: 'Loading...',
-              artist: 'Loading...',
-              albumArtUrl: '',
-              explicit: false,
-              source: item.source,
-              status: item.status,
-              upvotes: 0,
-              downvotes: 0,
-            };
-          }),
-        };
+        return { ...prev, queue: data.queue };
       });
     };
 

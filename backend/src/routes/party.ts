@@ -204,13 +204,7 @@ router.post('/party/:partyId/seed', (req: Request, res: Response) => {
   if (io) {
     const state = store.getState(partyId);
     if (state) {
-      io.to(`party:${partyId}`).emit('party:queueUpdated', {
-        queue: state.queue.map((s) => ({
-          trackId: s.trackId,
-          source: s.source,
-          status: s.status,
-        })),
-      });
+      io.to(`party:${partyId}`).emit('party:queueUpdated', { queue: state.queue });
     }
   }
 
@@ -340,13 +334,7 @@ router.post('/party/:partyId/vote', (req: Request, res: Response) => {
       // Broadcast queue updated
       const state = store.getState(partyId);
       if (state) {
-        io.to(`party:${partyId}`).emit('party:queueUpdated', {
-          queue: state.queue.map((s) => ({
-            trackId: s.trackId,
-            source: s.source,
-            status: s.status,
-          })),
-        });
+        io.to(`party:${partyId}`).emit('party:queueUpdated', { queue: state.queue });
       }
     }
   }
@@ -369,13 +357,7 @@ router.post('/party/:partyId/vote', (req: Request, res: Response) => {
         // Broadcast queue updated
         const state = store.getState(partyId);
         if (state) {
-          io.to(`party:${partyId}`).emit('party:queueUpdated', {
-            queue: state.queue.map((s) => ({
-              trackId: s.trackId,
-              source: s.source,
-              status: s.status,
-            })),
-          });
+          io.to(`party:${partyId}`).emit('party:queueUpdated', { queue: state.queue });
         }
       }
     }
