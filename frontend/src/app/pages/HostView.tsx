@@ -15,56 +15,6 @@ interface HostViewProps {
   onUpdateSettings: (settings: { mood?: string; kidFriendly?: boolean; allowSuggestions?: boolean }) => Promise<void>;
 }
 
-const mockQueue = [
-  {
-    id: 2,
-    position: 1,
-    albumArt: 'https://images.unsplash.com/photo-1703115015357-ba562d7dfd09?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-    title: 'Anti-Hero',
-    artist: 'Taylor Swift',
-    upvotes: 8,
-    trendingUp: true
-  },
-  {
-    id: 3,
-    position: 2,
-    albumArt: 'https://images.unsplash.com/photo-1697238724753-60c0c31132d3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-    title: 'Flowers',
-    artist: 'Miley Cyrus',
-    upvotes: 6
-  },
-  {
-    id: 4,
-    position: 3,
-    albumArt: 'https://images.unsplash.com/photo-1601643157091-ce5c665179ab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-    title: 'Kill Bill',
-    artist: 'SZA',
-    upvotes: 5,
-    isPinned: true
-  },
-  {
-    id: 5,
-    position: 4,
-    albumArt: 'https://images.unsplash.com/photo-1510809393-728d340e4eb1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-    title: 'Vampire',
-    artist: 'Olivia Rodrigo',
-    upvotes: 4
-  }
-];
-
-const mockActivity = [
-  { id: 1, user: 'Sam', action: 'added a song', time: '1m ago' },
-  { id: 2, user: 'Mia', action: 'upvoted', time: '2m ago' },
-  { id: 3, user: 'Alex', action: 'joined', time: '3m ago' },
-  { id: 4, user: 'Jordan', action: 'added a song', time: '5m ago' }
-];
-
-const mockPeople = [
-  { id: 1, name: 'Sam', avatar: 'S', color: '#00ff41' },
-  { id: 2, name: 'Mia', avatar: 'M', color: '#00cc34' },
-  { id: 3, name: 'Alex', avatar: 'A', color: '#00ff41' },
-  { id: 4, name: 'Jordan', avatar: 'J', color: '#00cc34' }
-];
 
 export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings }: HostViewProps) {
   const [isRoomLocked, setIsRoomLocked] = useState(false);
@@ -343,16 +293,8 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings 
                 Activity
               </h3>
               
-              <div className="space-y-3">
-                {mockActivity.map((item) => (
-                  <div key={item.id} className="flex items-start justify-between">
-                    <div>
-                      <span className="text-white font-medium">{item.user}</span>
-                      <span className="text-[#9ca3af]"> {item.action}</span>
-                    </div>
-                    <span className="text-[#6b7280] text-xs">{item.time}</span>
-                  </div>
-                ))}
+              <div className="text-center py-6 text-[#6b7280] text-sm">
+                No activity yet
               </div>
             </div>
           </div>
