@@ -164,6 +164,14 @@ class ApiClient {
     });
   }
 
+  // Host remove song from queue
+  async removeFromQueue(partyId: string, hostId: string, trackId: string): Promise<{ ok: boolean }> {
+    return this.request(`/party/${partyId}/queue/${trackId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ hostId }),
+    });
+  }
+
   // Queue seeding
   async seedQueue(
     partyId: string,

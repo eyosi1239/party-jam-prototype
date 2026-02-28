@@ -684,4 +684,34 @@ router.post('/party/:partyId/nowPlaying', (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+// DELETE /party/:partyId/queue/:trackId - Host force-remove song
+router.delete('/party/:partyId/queue/:trackId', (req: Request, res: Response) => {
+  const { partyId, trackId } = req.params;
+  const { hostId } = req.body;
+
+  if (!hostId) {
+    return res.status(400).json(createError('INVALID_REQUEST', 'hostId is required'));
+  }
+
+  const party = store.getParty(partyId);
+  if (!party) {
+    return res.status(404).json(createError('PARTY_NOT_FOUND', 'Party not found'));
+  }
+
+  if (party.hostId !== hostId) {
+    return res.status(403).json(createError('NOT_HOST', 'Only host can remove songs'));
+  }
+
+  store.removeFromQueue(partyId, trackId);
+
+  if (io) {
+    const state = store.getState(partyId);
+    if (state) {
+      io.to(`party:${partyId}`).emit('party:queueUpdated', { queue: state.queue });
+    }
+  }
+
+  res.json({ ok: true });
+});
+
 export default router;

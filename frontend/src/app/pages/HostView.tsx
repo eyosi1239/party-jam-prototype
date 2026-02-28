@@ -19,7 +19,7 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings 
   const [isRoomLocked, setIsRoomLocked] = useState(false);
   const [showNewCodeModal, setShowNewCodeModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
-  const [selectedSongToRemove, setSelectedSongToRemove] = useState<string | null>(null);
+  const [selectedSongToRemove, setSelectedSongToRemove] = useState<{ title: string; trackId: string } | null>(null);
   const [isSeedingQueue, setIsSeedingQueue] = useState(false);
 
   // Use real party state or show loading
@@ -41,9 +41,15 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings 
     console.log('Generate new code');
   };
 
-  const handleRemoveSong = () => {
+  const handleRemoveSong = async () => {
+    if (!selectedSongToRemove) return;
     setShowRemoveModal(false);
-    console.log('Remove song:', selectedSongToRemove);
+    try {
+      await api.removeFromQueue(party.partyId, party.hostId, selectedSongToRemove.trackId);
+    } catch (err) {
+      console.error('Failed to remove song:', err);
+    }
+    setSelectedSongToRemove(null);
   };
 
   const handleSeedQueue = async () => {
@@ -145,7 +151,7 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings 
                     isPinned={false}
                     onSkipNext={() => console.log('Skip next:', song.trackId)}
                     onRemove={() => {
-                      setSelectedSongToRemove(song.title);
+                      setSelectedSongToRemove({ title: song.title, trackId: song.trackId });
                       setShowRemoveModal(true);
                     }}
                     onPin={() => console.log('Pin:', song.trackId)}
@@ -347,7 +353,7 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings 
           </>
         }
       >
-        <p>Are you sure you want to remove "{selectedSongToRemove}" from the queue?</p>
+        <p>Are you sure you want to remove "{selectedSongToRemove?.title}" from the queue?</p>
       </Modal>
     </div>
   );
