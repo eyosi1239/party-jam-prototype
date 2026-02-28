@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { SpotifyProvider, useSpotify } from '@/contexts/SpotifyContext';
 import { SpotifyCallback } from '@/app/pages/SpotifyCallback';
 import { SpotifyConnect } from '@/app/components/SpotifyConnect';
+import { JoinCodeModal } from '@/app/components/JoinCodeModal';
 import { useState, useEffect } from 'react';
 import { useParty } from '@/lib/useParty';
 import { api } from '@/lib/api';
@@ -16,6 +17,7 @@ function AppContent() {
   const { user, loading } = useAuth();
   const spotify = useSpotify();
   const [currentView, setCurrentView] = useState<View>('login');
+  const [showJoinModal, setShowJoinModal] = useState(false);
   const party = useParty();
 
   // Handle Spotify OAuth callback
@@ -88,19 +90,14 @@ function AppContent() {
     await party.createParty(userId, 'chill');
   };
 
-  // Join party (guest)
-  const handleJoinParty = async () => {
-    const joinCode = prompt('Enter Join Code:');
-    if (joinCode) {
-      try {
-        const { partyId } = await api.resolveJoinCode(joinCode.toUpperCase());
-        const userId = user?.uid ?? `guest_${Date.now()}`;
-        await party.joinParty(partyId, userId);
-      } catch (error) {
-        alert('Invalid join code. Please check the code and try again.');
-        console.error('Join error:', error);
-      }
-    }
+  // Open join modal
+  const handleJoinParty = () => setShowJoinModal(true);
+
+  // Called by JoinCodeModal with the resolved code
+  const handleJoinWithCode = async (joinCode: string) => {
+    const { partyId } = await api.resolveJoinCode(joinCode);
+    const userId = user?.uid ?? `guest_${Date.now()}`;
+    await party.joinParty(partyId, userId);
   };
 
   return (
@@ -175,6 +172,12 @@ function AppContent() {
           onUpdateSettings={party.updateSettings}
         />
       )}
+
+      <JoinCodeModal
+        isOpen={showJoinModal}
+        onClose={() => setShowJoinModal(false)}
+        onJoin={handleJoinWithCode}
+      />
 
       {/* Login or Sign Up Card */}
       {(currentView === 'login' || currentView === 'signup') && (
