@@ -6,7 +6,7 @@ interface LoginCardProps {
   onLogin?: (email: string, password: string, roomCode?: string) => void;
   onGoogleLogin?: () => void;
   onSpotifyLogin?: () => void;
-  onForgotPassword?: () => void;
+  onForgotPassword?: (email: string) => void;
   onSignUp?: () => void;
 }
 
@@ -210,7 +210,7 @@ export function LoginCard({
             <div className="flex justify-end">
               <button
                 type="button"
-                onClick={onForgotPassword}
+                onClick={() => onForgotPassword?.(email)}
                 className="text-sm text-[#9ca3af] hover:text-[#00ff41] transition-colors duration-200"
               >
                 Forgot password?
