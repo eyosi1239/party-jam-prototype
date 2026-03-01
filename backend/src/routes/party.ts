@@ -242,6 +242,10 @@ router.post('/party/:partyId/end', (req: Request, res: Response) => {
 
   store.updateParty(partyId, { status: 'ENDED' });
 
+  if (io) {
+    io.to(`party:${partyId}`).emit('party:ended', { partyId });
+  }
+
   res.json({ status: 'ENDED' });
 });
 

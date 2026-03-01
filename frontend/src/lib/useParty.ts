@@ -20,6 +20,7 @@ export interface UsePartyResult {
   partyState: PartyState | null;
   loading: boolean;
   error: string | null;
+  partyEndedByHost: boolean;
 
   // Party info
   partyId: string | null;
@@ -43,12 +44,14 @@ export function useParty(): UsePartyResult {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [partyEndedByHost, setPartyEndedByHost] = useState(false);
 
   // Create a new party (host)
   const createParty = useCallback(async (uid: string, mood = 'chill') => {
     try {
       setLoading(true);
       setError(null);
+      setPartyEndedByHost(false);
 
       const result = await api.createParty({
         hostId: uid,
@@ -84,6 +87,7 @@ export function useParty(): UsePartyResult {
     try {
       setLoading(true);
       setError(null);
+      setPartyEndedByHost(false);
 
       await api.joinParty(pid, { userId: uid });
 
@@ -317,6 +321,17 @@ export function useParty(): UsePartyResult {
       });
     };
 
+    // Host ended the party — clean up and flag so UI can show a notification
+    const handlePartyEnded = () => {
+      setPartyEndedByHost(true);
+      stopHeartbeat();
+      disconnectSocket();
+      setPartyState(null);
+      setPartyId(null);
+      setJoinCode(null);
+      setUserId(null);
+    };
+
     // Register listeners
     onSocketEvent('party:queueUpdated', handleQueueUpdate);
     onSocketEvent('party:voteUpdate', handleVoteUpdate);
@@ -328,6 +343,7 @@ export function useParty(): UsePartyResult {
     onSocketEvent('party:codeRegenerated', handleCodeRegenerated);
     onSocketEvent('party:membersUpdated', handleMembersUpdated);
     onSocketEvent('party:error', handleError);
+    onSocketEvent('party:ended', handlePartyEnded);
 
     // Cleanup
     return () => {
@@ -341,6 +357,7 @@ export function useParty(): UsePartyResult {
       offSocketEvent('party:codeRegenerated', handleCodeRegenerated);
       offSocketEvent('party:membersUpdated', handleMembersUpdated);
       offSocketEvent('party:error', handleError);
+      offSocketEvent('party:ended', handlePartyEnded);
     };
   }, [partyId]);
 
@@ -348,6 +365,7 @@ export function useParty(): UsePartyResult {
     partyState,
     loading,
     error,
+    partyEndedByHost,
     partyId,
     joinCode,
     userId,

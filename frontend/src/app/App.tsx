@@ -7,6 +7,7 @@ import { SpotifyProvider, useSpotify } from '@/contexts/SpotifyContext';
 import { SpotifyCallback } from '@/app/pages/SpotifyCallback';
 import { JoinCodeModal } from '@/app/components/JoinCodeModal';
 import { CreatePartyModal } from '@/app/components/CreatePartyModal';
+import { Toast } from '@/app/components/Toast';
 import { useState, useEffect } from 'react';
 import { useParty } from '@/lib/useParty';
 import { api } from '@/lib/api';
@@ -176,6 +177,15 @@ function AppContent() {
             />
           )}
         </>
+      )}
+
+      {/* Party ended notification for guests */}
+      {party.partyEndedByHost && (
+        <Toast
+          message="The host ended the party"
+          type="info"
+          duration={5000}
+        />
       )}
     </div>
   );
