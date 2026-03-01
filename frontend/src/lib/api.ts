@@ -172,6 +172,38 @@ class ApiClient {
     });
   }
 
+  // Move song to front of queue (play next)
+  async playNextInQueue(partyId: string, hostId: string, trackId: string): Promise<{ ok: boolean }> {
+    return this.request(`/party/${partyId}/queue/${trackId}/playNext`, {
+      method: 'POST',
+      body: JSON.stringify({ hostId }),
+    });
+  }
+
+  // Pin or unpin a song
+  async pinSong(partyId: string, hostId: string, trackId: string, isPinned: boolean): Promise<{ ok: boolean }> {
+    return this.request(`/party/${partyId}/queue/${trackId}/pin`, {
+      method: 'POST',
+      body: JSON.stringify({ hostId, isPinned }),
+    });
+  }
+
+  // Skip current song (advance queue)
+  async skipCurrentSong(partyId: string, hostId: string): Promise<{ ok: boolean }> {
+    return this.request(`/party/${partyId}/skip`, {
+      method: 'POST',
+      body: JSON.stringify({ hostId }),
+    });
+  }
+
+  // Regenerate join code
+  async regenerateCode(partyId: string, hostId: string): Promise<{ joinCode: string }> {
+    return this.request(`/party/${partyId}/code/regenerate`, {
+      method: 'POST',
+      body: JSON.stringify({ hostId }),
+    });
+  }
+
   // Queue seeding
   async seedQueue(
     partyId: string,

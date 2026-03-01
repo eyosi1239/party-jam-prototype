@@ -26,5 +26,5 @@ export const CONFIG = {
 
 export const ENV = {
   PORT: process.env.PORT || 3001,
-  FRONTEND_ORIGIN: process.env.FRONTEND_ORIGIN || 'http://localhost:5173',
+  FRONTEND_ORIGIN: process.env.FRONTEND_ORIGIN || 'http://127.0.0.1:5173',
 } as const;
