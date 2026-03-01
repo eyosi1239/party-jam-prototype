@@ -266,14 +266,16 @@ export function useParty(): UsePartyResult {
       });
     };
 
-    // Update now playing
+    // Update now playing — use song from payload; queue lookup is a fallback for
+    // old clients, but normally the song is already removed from queue by the time
+    // this event arrives (advanceQueue splices before emitting).
     const handleNowPlaying = (data: any) => {
       setPartyState((prev) => {
         if (!prev) return prev;
-        const song = prev.queue.find((s) => s.trackId === data.trackId);
+        const song = data.song ?? prev.queue.find((s) => s.trackId === data.trackId) ?? prev.nowPlaying;
         return {
           ...prev,
-          nowPlaying: song || prev.nowPlaying,
+          nowPlaying: song,
         };
       });
     };

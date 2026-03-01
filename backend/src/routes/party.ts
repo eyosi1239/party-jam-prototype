@@ -688,11 +688,12 @@ router.post('/party/:partyId/nowPlaying', (req: Request, res: Response) => {
     };
   }
 
-  // Broadcast now playing
+  // Broadcast now playing (include full song so frontend doesn't need to queue-lookup)
   if (io) {
     io.to(`party:${partyId}`).emit('party:nowPlaying', {
       trackId,
       startedAt,
+      song: partyData.nowPlaying,
     });
   }
 
@@ -787,6 +788,7 @@ router.post('/party/:partyId/skip', (req: Request, res: Response) => {
         io.to(`party:${partyId}`).emit('party:nowPlaying', {
           trackId: nextSong.trackId,
           startedAt: Date.now(),
+          song: nextSong,
         });
       }
     }
