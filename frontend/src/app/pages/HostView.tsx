@@ -1,4 +1,5 @@
 import { NavBar } from '@/app/components/NavBar';
+import QRCode from 'react-qr-code';
 import { QueueItemLarge } from '@/app/components/QueueItemLarge';
 import { HostPlayerControls } from '@/app/components/HostPlayerControls';
 import { Modal } from '@/app/components/Modal';
@@ -13,12 +14,15 @@ interface HostViewProps {
   joinCode: string | null;
   onStartParty: () => Promise<void>;
   onUpdateSettings: (settings: { mood?: string; kidFriendly?: boolean; allowSuggestions?: boolean }) => Promise<void>;
+  onRegenerateCode: () => Promise<void>;
+  onLeaveRoom?: () => void;
 }
 
-export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings }: HostViewProps) {
+export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings, onRegenerateCode, onLeaveRoom }: HostViewProps) {
   const [isRoomLocked, setIsRoomLocked] = useState(false);
   const [showNewCodeModal, setShowNewCodeModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [showEndPartyModal, setShowEndPartyModal] = useState(false);
   const [selectedSongToRemove, setSelectedSongToRemove] = useState<{ title: string; trackId: string } | null>(null);
   const [isSeedingQueue, setIsSeedingQueue] = useState(false);
 
@@ -36,9 +40,40 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings 
   const nowPlaying = partyState.nowPlaying;
   const { party } = partyState;
 
-  const handleGenerateNewCode = () => {
+  const handleGenerateNewCode = async () => {
     setShowNewCodeModal(false);
-    console.log('Generate new code');
+    try {
+      await onRegenerateCode();
+    } catch (err) {
+      console.error('Failed to regenerate code:', err);
+    }
+  };
+
+  const handleSkipNext = async (trackId: string) => {
+    if (!partyState) return;
+    try {
+      await api.playNextInQueue(party.partyId, party.hostId, trackId);
+    } catch (err) {
+      console.error('Failed to move song to front:', err);
+    }
+  };
+
+  const handlePin = async (trackId: string, currentlyPinned: boolean) => {
+    if (!partyState) return;
+    try {
+      await api.pinSong(party.partyId, party.hostId, trackId, !currentlyPinned);
+    } catch (err) {
+      console.error('Failed to pin song:', err);
+    }
+  };
+
+  const handleSkipCurrent = async () => {
+    if (!partyState) return;
+    try {
+      await api.skipCurrentSong(party.partyId, party.hostId);
+    } catch (err) {
+      console.error('Failed to skip song:', err);
+    }
   };
 
   const handleRemoveSong = async () => {
@@ -50,6 +85,16 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings 
       console.error('Failed to remove song:', err);
     }
     setSelectedSongToRemove(null);
+  };
+
+  const handleEndParty = async () => {
+    setShowEndPartyModal(false);
+    try {
+      await api.endParty(party.partyId, party.hostId);
+    } catch (err) {
+      console.error('Failed to end party:', err);
+    }
+    onLeaveRoom?.();
   };
 
   const handleSeedQueue = async () => {
@@ -81,6 +126,7 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings 
       <NavBar
         roomName={party.mood ? `${party.mood} Party` : 'Party Jam'}
         roomCode={joinCode || party.partyId.slice(0, 6).toUpperCase()}
+        onLeaveRoom={() => setShowEndPartyModal(true)}
         onSettings={() => console.log('Settings')}
         onProfile={() => console.log('Profile')}
       />
@@ -102,7 +148,7 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings 
                 progress={0}
                 volume={70}
                 onPlayPause={() => console.log('Play/Pause')}
-                onSkip={() => console.log('Skip')}
+                onSkip={handleSkipCurrent}
                 onBack={() => console.log('Back')}
                 onVolumeChange={(vol) => console.log('Volume:', vol)}
               />
@@ -148,13 +194,13 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings 
                     artist={song.artist}
                     upvotes={song.upvotes}
                     trendingUp={false}
-                    isPinned={false}
-                    onSkipNext={() => console.log('Skip next:', song.trackId)}
+                    isPinned={song.isPinned ?? false}
+                    onSkipNext={() => handleSkipNext(song.trackId)}
                     onRemove={() => {
                       setSelectedSongToRemove({ title: song.title, trackId: song.trackId });
                       setShowRemoveModal(true);
                     }}
-                    onPin={() => console.log('Pin:', song.trackId)}
+                    onPin={() => handlePin(song.trackId, song.isPinned ?? false)}
                   />
                 ))}
               </div>
@@ -188,13 +234,14 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings 
                 <div className="text-black text-sm opacity-70">Share this code to invite guests</div>
               </div>
 
-              {/* QR Code Placeholder */}
+              {/* QR Code */}
               <div className="bg-white rounded-2xl p-4 mb-4 flex items-center justify-center">
-                <div className="w-32 h-32 bg-black rounded-lg flex items-center justify-center">
-                  <div className="text-white text-xs text-center">
-                    QR Code<br/>Placeholder
-                  </div>
-                </div>
+                <QRCode
+                  value={`${window.location.origin}?join=${joinCode || party.partyId.slice(0, 6).toUpperCase()}`}
+                  size={128}
+                  bgColor="#ffffff"
+                  fgColor="#000000"
+                />
               </div>
 
               {/* Room Controls */}
@@ -354,6 +401,31 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings 
         }
       >
         <p>Are you sure you want to remove "{selectedSongToRemove?.title}" from the queue?</p>
+      </Modal>
+
+      {/* End Party Modal */}
+      <Modal
+        isOpen={showEndPartyModal}
+        onClose={() => setShowEndPartyModal(false)}
+        title="End Party?"
+        actions={
+          <>
+            <button
+              onClick={() => setShowEndPartyModal(false)}
+              className="px-6 py-2.5 rounded-xl bg-[#1a1a1a] text-[#9ca3af] hover:bg-[#2a2a2a] transition-all duration-200"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleEndParty}
+              className="px-6 py-2.5 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all duration-200 font-medium"
+            >
+              End Party
+            </button>
+          </>
+        }
+      >
+        <p>This will end the party for everyone. All guests will be disconnected.</p>
       </Modal>
     </div>
   );

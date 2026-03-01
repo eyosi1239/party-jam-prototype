@@ -20,6 +20,7 @@ export interface UsePartyResult {
   partyState: PartyState | null;
   loading: boolean;
   error: string | null;
+  partyEndedByHost: boolean;
 
   // Party info
   partyId: string | null;
@@ -32,6 +33,7 @@ export interface UsePartyResult {
   startParty: () => Promise<void>;
   vote: (trackId: string, vote: 'UP' | 'DOWN' | 'NONE', context: 'QUEUE' | 'TESTING') => Promise<void>;
   updateSettings: (settings: { mood?: string; kidFriendly?: boolean; allowSuggestions?: boolean }) => Promise<void>;
+  regenerateCode: () => Promise<void>;
   leaveParty: () => void;
 }
 
@@ -42,12 +44,14 @@ export function useParty(): UsePartyResult {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [partyEndedByHost, setPartyEndedByHost] = useState(false);
 
   // Create a new party (host)
   const createParty = useCallback(async (uid: string, mood = 'chill') => {
     try {
       setLoading(true);
       setError(null);
+      setPartyEndedByHost(false);
 
       const result = await api.createParty({
         hostId: uid,
@@ -83,6 +87,7 @@ export function useParty(): UsePartyResult {
     try {
       setLoading(true);
       setError(null);
+      setPartyEndedByHost(false);
 
       await api.joinParty(pid, { userId: uid });
 
@@ -176,6 +181,17 @@ export function useParty(): UsePartyResult {
       }
     } catch (err) {
       console.error('Failed to update settings:', err);
+    }
+  }, [partyId, userId]);
+
+  // Regenerate join code (host only)
+  const regenerateCode = useCallback(async () => {
+    if (!partyId || !userId) return;
+    try {
+      const result = await api.regenerateCode(partyId, userId);
+      setJoinCode(result.joinCode);
+    } catch (err) {
+      console.error('Failed to regenerate code:', err);
     }
   }, [partyId, userId]);
 
@@ -288,6 +304,34 @@ export function useParty(): UsePartyResult {
       setError(data.message);
     };
 
+    // Handle new join code (e.g. guest needs to know if code changed)
+    const handleCodeRegenerated = (data: any) => {
+      setJoinCode(data.joinCode);
+    };
+
+    // Update members list when someone joins or leaves
+    const handleMembersUpdated = (data: any) => {
+      setPartyState((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          members: data.members,
+          activeMembersCount: data.activeMembersCount,
+        };
+      });
+    };
+
+    // Host ended the party — clean up and flag so UI can show a notification
+    const handlePartyEnded = () => {
+      setPartyEndedByHost(true);
+      stopHeartbeat();
+      disconnectSocket();
+      setPartyState(null);
+      setPartyId(null);
+      setJoinCode(null);
+      setUserId(null);
+    };
+
     // Register listeners
     onSocketEvent('party:queueUpdated', handleQueueUpdate);
     onSocketEvent('party:voteUpdate', handleVoteUpdate);
@@ -296,7 +340,10 @@ export function useParty(): UsePartyResult {
     onSocketEvent('party:nowPlaying', handleNowPlaying);
     onSocketEvent('party:suggestionTesting', handleSuggestionTesting);
     onSocketEvent('party:suggestionExpired', handleSuggestionExpired);
+    onSocketEvent('party:codeRegenerated', handleCodeRegenerated);
+    onSocketEvent('party:membersUpdated', handleMembersUpdated);
     onSocketEvent('party:error', handleError);
+    onSocketEvent('party:ended', handlePartyEnded);
 
     // Cleanup
     return () => {
@@ -307,7 +354,10 @@ export function useParty(): UsePartyResult {
       offSocketEvent('party:nowPlaying', handleNowPlaying);
       offSocketEvent('party:suggestionTesting', handleSuggestionTesting);
       offSocketEvent('party:suggestionExpired', handleSuggestionExpired);
+      offSocketEvent('party:codeRegenerated', handleCodeRegenerated);
+      offSocketEvent('party:membersUpdated', handleMembersUpdated);
       offSocketEvent('party:error', handleError);
+      offSocketEvent('party:ended', handlePartyEnded);
     };
   }, [partyId]);
 
@@ -315,6 +365,7 @@ export function useParty(): UsePartyResult {
     partyState,
     loading,
     error,
+    partyEndedByHost,
     partyId,
     joinCode,
     userId,
@@ -323,6 +374,7 @@ export function useParty(): UsePartyResult {
     startParty,
     vote,
     updateSettings,
+    regenerateCode,
     leaveParty,
   };
 }

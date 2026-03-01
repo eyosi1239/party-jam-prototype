@@ -5,9 +5,9 @@ import { HostView } from '@/app/pages/HostView';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { SpotifyProvider, useSpotify } from '@/contexts/SpotifyContext';
 import { SpotifyCallback } from '@/app/pages/SpotifyCallback';
-import { SpotifyConnect } from '@/app/components/SpotifyConnect';
 import { JoinCodeModal } from '@/app/components/JoinCodeModal';
 import { CreatePartyModal } from '@/app/components/CreatePartyModal';
+import { Toast } from '@/app/components/Toast';
 import { useState, useEffect } from 'react';
 import { useParty } from '@/lib/useParty';
 import { api } from '@/lib/api';
@@ -15,7 +15,7 @@ import { api } from '@/lib/api';
 type View = 'login' | 'signup' | 'guest' | 'host';
 
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, loading, resetPassword } = useAuth();
   const spotify = useSpotify();
   const [currentView, setCurrentView] = useState<View>('login');
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -27,13 +27,16 @@ function AppContent() {
     return <SpotifyCallback />;
   }
 
-  // Auto-switch to host/guest view when party is created/joined
+  // Auto-switch to host/guest view when party is created/joined; back to lobby when left
   useEffect(() => {
     if (party.partyState) {
       const isHost = party.partyState.party.hostId === party.userId;
       setCurrentView(isHost ? 'host' : 'guest');
+    } else if (!party.partyId && (currentView === 'host' || currentView === 'guest')) {
+      // Party was left/ended — return to lobby
+      setCurrentView('guest');
     }
-  }, [party.partyState, party.userId]);
+  }, [party.partyState, party.partyId, party.userId]);
 
   // Logged in = Firebase user OR Spotify user
   const isLoggedIn = !!user || !!spotify.user;
@@ -78,8 +81,17 @@ function AppContent() {
     setCurrentView('guest');
   };
 
-  const handleForgotPassword = () => {
-    console.log('Forgot password');
+  const handleForgotPassword = async (email: string) => {
+    if (!email) {
+      alert('Enter your email address first, then click "Forgot password?"');
+      return;
+    }
+    try {
+      await resetPassword(email);
+      alert(`Password reset email sent to ${email}`);
+    } catch (err: any) {
+      alert(err?.message ?? 'Failed to send reset email. Check your email address.');
+    }
   };
 
   // Open create modal
@@ -119,58 +131,17 @@ function AppContent() {
         }}
       ></div>
 
-      {/* View Switcher (for demo purposes) */}
-      <div className="fixed top-4 right-4 z-50 flex gap-2 flex-wrap max-w-md">
-        <SpotifyConnect />
-        <button
-          onClick={() => setCurrentView('login')}
-          className={`px-3 py-1.5 rounded-lg text-xs transition-all duration-200 ${
-            currentView === 'login'
-              ? 'bg-[#00ff41] text-black'
-              : 'bg-[#1a1a1a] text-[#9ca3af] border border-[#2a2a2a]'
-          }`}
-        >
-          Login
-        </button>
-        <button
-          onClick={() => setCurrentView('signup')}
-          className={`px-3 py-1.5 rounded-lg text-xs transition-all duration-200 ${
-            currentView === 'signup'
-              ? 'bg-[#00ff41] text-black'
-              : 'bg-[#1a1a1a] text-[#9ca3af] border border-[#2a2a2a]'
-          }`}
-        >
-          Sign Up
-        </button>
-        <button
-          onClick={handleCreateParty}
-          disabled={party.loading}
-          className="px-3 py-1.5 rounded-lg text-xs bg-[#00ff41] text-black hover:bg-[#00e639] transition-all duration-200 disabled:opacity-50"
-        >
-          {party.loading ? 'Creating...' : '+ Create Party (Host)'}
-        </button>
-        <button
-          onClick={handleJoinParty}
-          disabled={party.loading}
-          className="px-3 py-1.5 rounded-lg text-xs bg-[#1a1a1a] text-[#00ff41] border border-[#00ff41]/30 hover:bg-[#00ff41]/10 transition-all duration-200 disabled:opacity-50"
-        >
-          {party.loading ? 'Joining...' : 'Join Party (Guest)'}
-        </button>
-        {party.partyId && (
-          <div className="px-3 py-1.5 rounded-lg text-xs bg-[#2a2a2a] text-white border border-[#3a3a3a]">
-            Party: {party.partyId.slice(0, 12)}... | Code: {party.joinCode || 'N/A'}
-          </div>
-        )}
-      </div>
 
       {/* Render based on current view */}
-      {currentView === 'guest' && <GuestView partyState={party.partyState} partyId={party.partyId} userId={party.userId} onVote={party.vote} onCreateParty={handleCreateParty} onJoinParty={handleJoinParty} />}
+      {currentView === 'guest' && <GuestView partyState={party.partyState} partyId={party.partyId} userId={party.userId} joinCode={party.joinCode} onVote={party.vote} onCreateParty={handleCreateParty} onJoinParty={handleJoinParty} onLeaveRoom={party.leaveParty} />}
       {currentView === 'host' && (
         <HostView
           partyState={party.partyState}
           joinCode={party.joinCode}
           onStartParty={party.startParty}
           onUpdateSettings={party.updateSettings}
+          onRegenerateCode={party.regenerateCode}
+          onLeaveRoom={party.leaveParty}
         />
       )}
 
@@ -206,6 +177,15 @@ function AppContent() {
             />
           )}
         </>
+      )}
+
+      {/* Party ended notification for guests */}
+      {party.partyEndedByHost && (
+        <Toast
+          message="The host ended the party"
+          type="info"
+          duration={5000}
+        />
       )}
     </div>
   );
