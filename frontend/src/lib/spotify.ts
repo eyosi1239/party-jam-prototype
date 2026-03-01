@@ -102,7 +102,7 @@ export async function initiateSpotifyLogin(): Promise<void> {
     redirect_uri: REDIRECT_URI,
     code_challenge_method: 'S256',
     code_challenge: codeChallenge,
-    scope: 'user-read-email user-read-private',
+    scope: 'user-read-email user-read-private streaming user-modify-playback-state user-read-playback-state',
   });
 
   window.location.href = `${SPOTIFY_AUTH_URL}?${params.toString()}`;
@@ -235,6 +235,11 @@ async function spotifyRequest<T>(endpoint: string, options: RequestInit = {}): P
     throw new Error(`Spotify API error: ${error.error?.message || response.statusText}`);
   }
 
+  // Playback control endpoints return 204 No Content — don't parse JSON
+  if (response.status === 204) {
+    return null as unknown as T;
+  }
+
   return response.json();
 }
 
@@ -302,6 +307,28 @@ export async function getRecommendations(mood: string, limit = 10): Promise<Spot
 
   const result = await spotifyRequest<SpotifyRecommendationsResult>(`/recommendations?${params.toString()}`);
   return result.tracks;
+}
+
+/**
+ * Transfer playback to a specific device (e.g. our Web Playback SDK device)
+ */
+export async function transferPlaybackToDevice(deviceId: string): Promise<void> {
+  await spotifyRequest<void>('/me/player', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ device_ids: [deviceId], play: false }),
+  });
+}
+
+/**
+ * Play a specific Spotify URI on a specific device
+ */
+export async function playTrackOnDevice(deviceId: string, uri: string): Promise<void> {
+  await spotifyRequest<void>(`/me/player/play?device_id=${deviceId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uris: [uri] }),
+  });
 }
 
 /**

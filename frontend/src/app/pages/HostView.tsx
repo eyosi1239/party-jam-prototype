@@ -4,10 +4,18 @@ import { QueueItemLarge } from '@/app/components/QueueItemLarge';
 import { HostPlayerControls } from '@/app/components/HostPlayerControls';
 import { Modal } from '@/app/components/Modal';
 import { Lock, RefreshCw, Users, Activity } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { PartyState } from '@/lib/types';
 import { getMusicProvider } from '@/lib/music';
+import { useSpotifyPlayer } from '@/lib/useSpotifyPlayer';
 import { api } from '@/lib/api';
+
+function formatTime(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
 
 interface HostViewProps {
   partyState: PartyState | null;
@@ -25,6 +33,16 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings,
   const [showEndPartyModal, setShowEndPartyModal] = useState(false);
   const [selectedSongToRemove, setSelectedSongToRemove] = useState<{ title: string; trackId: string } | null>(null);
   const [isSeedingQueue, setIsSeedingQueue] = useState(false);
+
+  // Spotify Web Playback SDK — only active when user has authenticated with Spotify
+  const { playbackState, playTrack, togglePlay } = useSpotifyPlayer();
+
+  // Auto-play on Spotify when nowPlaying changes (e.g. after skip) or player first connects
+  const nowPlayingTrackId = partyState?.nowPlaying?.trackId;
+  useEffect(() => {
+    if (!nowPlayingTrackId || !playbackState.isReady) return;
+    playTrack(`spotify:track:${nowPlayingTrackId}`);
+  }, [nowPlayingTrackId, playbackState.isReady]);
 
   // Use real party state or show loading
   if (!partyState) {
@@ -142,14 +160,14 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings,
                 albumArt={nowPlaying.albumArtUrl || 'https://images.unsplash.com/photo-1644855640845-ab57a047320e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400'}
                 title={nowPlaying.title}
                 artist={nowPlaying.artist}
-                isPlaying={true}
-                currentTime="0:00"
-                totalTime="3:00"
-                progress={0}
+                isPlaying={playbackState.isPlaying}
+                currentTime={formatTime(playbackState.progressMs)}
+                totalTime={formatTime(playbackState.durationMs)}
+                progress={playbackState.durationMs > 0 ? (playbackState.progressMs / playbackState.durationMs) * 100 : 0}
                 volume={70}
-                onPlayPause={() => console.log('Play/Pause')}
+                onPlayPause={togglePlay}
                 onSkip={handleSkipCurrent}
-                onBack={() => console.log('Back')}
+                onBack={() => {}}
                 onVolumeChange={(vol) => console.log('Volume:', vol)}
               />
             ) : (
