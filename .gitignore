@@ -9,3 +9,4 @@ dist
 .claude/
 .DS_Store
 **/.DS_Store
+CONTEXT.md

@@ -36,6 +36,7 @@ export interface Song {
   status: SongStatus;
   upvotes: number;
   downvotes: number;
+  isPinned?: boolean;
 }
 
 export interface PartyState {

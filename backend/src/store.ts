@@ -8,6 +8,7 @@ import { CONFIG } from './config.js';
 export class PartyStore {
   private parties = new Map<string, PartyData>();
   private joinCodes = new Map<string, string>(); // joinCode -> partyId
+  private partyJoinCodes = new Map<string, string>(); // partyId -> joinCode
 
   createParty(party: Party): void {
     const partyData: PartyData = {
@@ -22,7 +23,15 @@ export class PartyStore {
   }
 
   setJoinCode(joinCode: string, partyId: string): void {
+    // Remove old code if regenerating
+    const oldCode = this.partyJoinCodes.get(partyId);
+    if (oldCode) this.joinCodes.delete(oldCode);
     this.joinCodes.set(joinCode, partyId);
+    this.partyJoinCodes.set(partyId, joinCode);
+  }
+
+  getJoinCodeForParty(partyId: string): string | null {
+    return this.partyJoinCodes.get(partyId) || null;
   }
 
   getPartyByJoinCode(joinCode: string): Party | null {
@@ -219,6 +228,40 @@ export class PartyStore {
     const partyData = this.parties.get(partyId);
     if (!partyData) return null;
     return partyData.suggestions.get(trackId) || null;
+  }
+
+  moveToFront(partyId: string, trackId: string): boolean {
+    const partyData = this.parties.get(partyId);
+    if (!partyData) return false;
+
+    const idx = partyData.queue.findIndex((s) => s.trackId === trackId);
+    if (idx === -1) return false;
+    if (idx === 0) return true;
+
+    const [song] = partyData.queue.splice(idx, 1);
+    partyData.queue.unshift(song);
+    return true;
+  }
+
+  setPinned(partyId: string, trackId: string, isPinned: boolean): boolean {
+    const partyData = this.parties.get(partyId);
+    if (!partyData) return false;
+
+    const song = partyData.queue.find((s) => s.trackId === trackId);
+    if (!song) return false;
+
+    song.isPinned = isPinned;
+    if (isPinned) this.moveToFront(partyId, trackId);
+    return true;
+  }
+
+  advanceQueue(partyId: string): Song | null {
+    const partyData = this.parties.get(partyId);
+    if (!partyData || partyData.queue.length === 0) return null;
+
+    const [nextSong] = partyData.queue.splice(0, 1);
+    partyData.nowPlaying = nextSong;
+    return nextSong;
   }
 
   updateSongStatus(partyId: string, trackId: string, status: 'QUEUED' | 'TESTING' | 'PROMOTED' | 'REMOVED' | 'EXPIRED'): boolean {
