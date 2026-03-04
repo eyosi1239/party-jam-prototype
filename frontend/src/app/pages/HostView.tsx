@@ -34,7 +34,7 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings,
   const [isSeedingQueue, setIsSeedingQueue] = useState(false);
 
   // Spotify Web Playback SDK — only active when user has authenticated with Spotify
-  const { playbackState, playTrack, togglePlay } = useSpotifyPlayer();
+  const { playbackState, playTrack, togglePlay, setVolume } = useSpotifyPlayer();
 
   // Auto-play on Spotify when nowPlaying changes (e.g. after skip) or player first connects
   const nowPlayingTrackId = partyState?.nowPlaying?.trackId;
@@ -168,7 +168,7 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings,
                 onPlayPause={togglePlay}
                 onSkip={handleSkipCurrent}
                 onBack={() => {}}
-                onVolumeChange={(vol) => console.log('Volume:', vol)}
+                onVolumeChange={setVolume}
               />
             ) : (
               <div className="bg-gradient-to-b from-[#0a0a0a] to-[#050505] border border-[#1a1a1a] rounded-3xl p-8 text-center">
