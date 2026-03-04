@@ -21,13 +21,12 @@ interface HostViewProps {
   partyState: PartyState | null;
   joinCode: string | null;
   onStartParty: () => Promise<void>;
-  onUpdateSettings: (settings: { mood?: string; kidFriendly?: boolean; allowSuggestions?: boolean }) => Promise<void>;
+  onUpdateSettings: (settings: { mood?: string; kidFriendly?: boolean; allowSuggestions?: boolean; locked?: boolean }) => Promise<void>;
   onRegenerateCode: () => Promise<void>;
   onLeaveRoom?: () => void;
 }
 
 export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings, onRegenerateCode, onLeaveRoom }: HostViewProps) {
-  const [isRoomLocked, setIsRoomLocked] = useState(false);
   const [showNewCodeModal, setShowNewCodeModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [showEndPartyModal, setShowEndPartyModal] = useState(false);
@@ -57,6 +56,7 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings,
   const members = partyState.members || [];
   const nowPlaying = partyState.nowPlaying;
   const { party } = partyState;
+  const isRoomLocked = party.locked ?? false;
 
   const handleGenerateNewCode = async () => {
     setShowNewCodeModal(false);
@@ -265,7 +265,7 @@ export function HostView({ partyState, joinCode, onStartParty, onUpdateSettings,
               {/* Room Controls */}
               <div className="space-y-3">
                 <button
-                  onClick={() => setIsRoomLocked(!isRoomLocked)}
+                  onClick={() => onUpdateSettings({ locked: !isRoomLocked })}
                   className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 ${
                     isRoomLocked
                       ? 'bg-[#00ff41] text-black'
