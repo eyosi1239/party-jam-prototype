@@ -56,28 +56,21 @@ function AppContent() {
     );
   }
 
-  const handleLogin = (email: string, password: string, roomCode?: string) => {
-    console.log('Login:', { email, password, roomCode });
+  const handleLogin = (_email: string, _password: string, _roomCode?: string) => {
     // Firebase login is handled by LoginCard
-    if (roomCode) {
-      console.log('Joining party with code:', roomCode);
-    }
     setCurrentView('guest');
   };
 
-  const handleSignUp = (name: string, email: string, password: string, roomCode?: string) => {
-    console.log('Sign up:', { name, email, password, roomCode });
+  const handleSignUp = (_name: string, _email: string, _password: string, _roomCode?: string) => {
     // Firebase signup is handled by SignUpCard
     setCurrentView('guest');
   };
 
   const handleGoogleLogin = () => {
-    console.log('Google login');
     setCurrentView('guest');
   };
 
   const handleGoogleSignUp = () => {
-    console.log('Google sign up');
     setCurrentView('guest');
   };
 
